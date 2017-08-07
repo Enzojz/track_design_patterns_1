@@ -1,0 +1,31 @@
+local ptracks = require "paramtracks"
+
+function data()
+    return {
+        type = "ASSET_DEFAULT",
+        description = {
+            name = _("Concrete Flying Junction"),
+            description = _("An European style flying junction")
+        },
+        availability = {
+            yearFrom = 1892
+        },
+        buildMode = "SINGLE",
+        categories = {"misc"},
+        order = 27218,
+        skipCollision = false,
+        autoRemovable = false,
+        params = ptracks.params(),
+        
+        updateFn = ptracks.updateFn(
+            {
+                mSidePillar = "flying_junction/concrete/pillar_side.mdl",
+                mRoofFenceF = "flying_junction/concrete/roof_fence_front.mdl",
+                mRoofFenceS = "flying_junction/concrete/roof_fence_side.mdl",
+                mRoof = "flying_junction/concrete/roof.mdl",
+                bridgeType = "z_concrete_flying_junction.lua",
+            }
+    )
+    }
+
+end
