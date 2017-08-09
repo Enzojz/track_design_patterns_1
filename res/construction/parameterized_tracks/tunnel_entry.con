@@ -165,7 +165,9 @@ local updateFn = function(models)
         local rS = (rList[params.radiusS + 1] * 1000) * (params.signS == 0 and 1 or -1)
         local rU = (rList[params.radiusU + 1] * 1000) * (params.signU == 0 and 1 or -1)
         
-        local surface = composite(func.with(
+
+
+        local entry = composite(func.with(
             {
                 initRad = rS > 0 and math.pi or 0,
                 height = -height,
@@ -175,6 +177,7 @@ local updateFn = function(models)
                 models = models
             }, generateSlope(slope, height))
         )
+
         local underground = composite(func.with({
             initRad = rU > 0 and math.pi or 0,
             height = -height,
@@ -186,10 +189,10 @@ local updateFn = function(models)
         )
         
         local edges = station.fusionEdges({
-            surface.edges.inf,
-            surface.edges.main,
-            underground.edges.main,
-            underground.edges.sup
+            entry.edges.inf,
+            entry.edges.main,
+            (rS * rU < 0 and pipe.rev() or pipe.noop())(underground.edges.main),
+            (rS * rU < 0 and pipe.rev() or pipe.noop())(underground.edges.sup)
         })
         
         return
@@ -199,10 +202,10 @@ local updateFn = function(models)
                     pipe.new * func.map({edges[1], edges[2]}, station.mergeEdges) * station.prepareEdges * trackBuilder.nonAligned(),
                     pipe.new * func.map({edges[3], edges[4]}, station.mergeEdges) * station.prepareEdges * trackBuilder.tunnel()
                 },
-                models = (surface.walls + surface.surface) * pipe.flatten(),
+                models = (entry.walls + entry.surface) * pipe.flatten(),
                 terrainAlignmentLists = jM.mergePoly({
-                    equal = jM.projectPolys(coor.I())(surface.polys.polys),
-                    slot = jM.projectPolys(coor.I())(surface.polys.trackPolys),
+                    equal = jM.projectPolys(coor.transZ(-0.1))(entry.polys.polys),
+                    slot = jM.projectPolys(coor.transZ(-0.1))(entry.polys.trackPolys),
                 })
             }
     end
