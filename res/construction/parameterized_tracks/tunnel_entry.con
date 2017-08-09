@@ -9,6 +9,7 @@ local pipe = require "flyingjunction/pipe"
 local junction = require "junction"
 local jA = require "junction_assoc"
 local jM = require "junction_main"
+
 local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local slopeList = {15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100}
 
@@ -98,7 +99,7 @@ local composite = function(config)
             }
         end)
     
-    local sideEdges = pipe.new + (config.right and {(offsets.tracks[1] - 7.5)} or {}) + (config.left and {offsets.tracks[#offsets.tracks] + 7.5} or {})
+    local sideEdges = pipe.new + (config.inner and {(offsets.tracks[1] - 7.5)} or {}) + (config.outer and {offsets.tracks[#offsets.tracks] + 7.5} or {})
     
     local extraTracks = sideEdges * pipe.map(function(o) return guideline + o end)
         * pipe.map(function(tr)
@@ -162,7 +163,7 @@ local function params()
         {
             key = "paraTracks",
             name = _("Parellal tracks"),
-            values = {_("None"), _("Both"), _("Left"), _("Right")},
+            values = {_("None"), _("Both"), _("Inner"), _("Outer")},
             defaultIndex = 1
         }
     }
@@ -179,6 +180,7 @@ end
 
 local updateFn = function(models)
     return function(params)
+        
         defaultParams(params)
         
         local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
@@ -199,8 +201,8 @@ local updateFn = function(models)
                 nbTracks = nbTracks,
                 radFactor = 1,
                 models = models,
-                left = func.contains({1, 2}, params.paraTracks),
-                right = func.contains({1, 3}, params.paraTracks)
+                inner = func.contains({1, 2}, params.paraTracks),
+                outer = func.contains({1, 3}, params.paraTracks)
             }, generateSlope(slope, height))
         )
         local underground = composite(func.with({
