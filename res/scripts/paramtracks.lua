@@ -10,8 +10,8 @@ local junction = require "junction"
 local jA = require "junction_assoc"
 local jM = require "junction_main"
 
-local rList = {junction.infi * 0.001, 5, 3, 2, 1.5, 1, 0.75, 0.5, 2 / 3, 0.4, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 7, 1 / 8, 1 / 9, 0.1}
-local slopeList = {15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70}
+local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local slopeList = {15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100}
 local heightList = {11, 10, 9, 8, 7, 6, 5, 4, 3}
 
 local function params()
@@ -29,12 +29,6 @@ local function params()
             name = _("Radius") .. ("(m)"),
             values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
             defaultIndex = #rList - 1
-        },
-        {
-            key = "isMir",
-            name = _("Mirrored"),
-            values = {_("No"), _("Yes")},
-            defaultIndex = 0
         },
         {
             key = "slope",
@@ -110,7 +104,7 @@ local updateFn = function(models)
         local height = sFactor * heightList[params.dz + 1]
         
         local nbTracks = params.nbTracks + 1
-        local r = (params.isMir == 0 and 1 or -1) * rList[params.radius + 1] * 1000
+        local r = rList[params.radius + 1] * 1000
         
         local surface = composite({
             initRad = r > 0 and math.pi or 0,
