@@ -1,0 +1,40 @@
+local coor = require "flyingjunction/coor"
+
+
+function data()
+    return {
+        boundingInfo = {
+            bbMax = {2.5, -4.5, 12.5, },
+            bbMin = {-2.5, -5, 11, },
+        },
+        collider = {
+            params = {
+            
+            },
+            type = "MESH",
+        },
+        lods = {
+            {
+                children = {
+                    {
+                        id = "flying_junction/concrete/roof_fence_side.msh",
+                        transf = coor.transY(2.5),
+                        type = "MESH",
+                    },
+                },
+                matConfigs = {
+                    {0, },
+                },
+                static = false,
+                visibleFrom = 0,
+                visibleTo = 1000,
+            },
+        },
+        metadata = {
+            cost = {
+                price = 10000,
+            },
+        },
+    
+    }
+end

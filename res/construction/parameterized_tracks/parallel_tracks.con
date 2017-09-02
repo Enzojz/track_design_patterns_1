@@ -1,0 +1,271 @@
+local paramsutil = require "paramsutil"
+local func = require "flyingjunction/func"
+local coor = require "flyingjunction/coor"
+local trackEdge = require "flyingjunction/trackedge"
+local line = require "flyingjunction/coorline"
+local arc = require "flyingjunction/coorarc"
+local station = require "flyingjunction/stationlib"
+local pipe = require "flyingjunction/pipe"
+local junction = require "junction"
+local jA = require "junction_assoc"
+local jM = require "junction_main"
+
+local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local slopeList = {15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100}
+
+local abs = math.abs
+
+local retriveTracks = function(tracks)
+    return tracks
+        * pipe.map(function(tr) return
+            tr.guidelines
+            * pipe.map(junction.generateArc)
+            * function(ar) return {ar[1][1], ar[1][2], ar[2][1], ar[2][2]} end
+            * pipe.map2(tr.fn.zsList, function(ar, nz) return func.map2(ar, nz, coor.apply) end)
+            * function(edge) return pipe.new
+                * {{edge[1], edge[2]}, {edge[3], edge[4]}}
+                * pipe.map(function(e) return {
+                    edge = pipe.new * e,
+                    snap = pipe.new / {false, false} / {false, false}
+                } end)
+                * station.joinEdges
+                * station.mergeEdges
+            end
+        end)
+end
+
+local straightProfile = function(slope)
+    local lineSlope = line.byPtPt(coor.xy(0, 0), coor.xy(slope.length, slope.height))
+    return {
+        {
+            pt = function(x) return lineSlope - line.byVecPt(coor.xy(0, 1), coor.xy(x, 0)) end,
+            slope = function(_) return slope.slope end,
+            pred = function(_) return true end,
+        },
+    }
+end
+
+local slopeProfile = function(slope)
+    local ar = arc.byOR(coor.xy(slope.length, -slope.factor * (slope.trans.r - slope.height) - slope.height), slope.trans.r)
+    local pTr = ar:pt(slope.factor * (math.pi * 0.5) + slope.rad)
+    local lineSlope = line.byPtPt(coor.xy(0, -slope.height), pTr)
+    return {
+        {
+            pred = function(x) return x <= pTr.x end,
+            slope = function(_) return -lineSlope.a / lineSlope.b end,
+            pt = function(x) return lineSlope - line.byVecPt(coor.xy(0, 1), coor.xy(x, 0)) end
+        },
+        {
+            pred = function(x) return x > pTr.x and x < slope.length end,
+            slope = function(pt) return math.tan(ar:rad(pt) - math.pi * 0.5) end,
+            pt = function(x) return (slope.factor > 0 and func.max or func.min)(ar / line.byVecPt(coor.xy(0, 1), coor.xy(x, 0)), function(p, q) return p.y < q.y end) end
+        },
+        {
+            pred = function(x) return x >= slope.length end,
+            slope = function(_) return 0 end,
+            pt = function(x) return slope.factor > 0 and coor.xy(x, 0) or coor.xy(x, -2 * slope.height) end
+        },
+    }
+end
+
+local function generateSlope(slope, length, nbTr)
+    nbTr = nbTr or 0
+    local sFactor = slope > 0 and 1 or -1
+    local rad = math.atan(slope)
+    local rTrans = 300
+    local trans = {
+        r = rTrans,
+        dz = sFactor * rTrans * (1 - math.cos(rad)),
+        length = sFactor * rTrans * math.sin(rad)
+    }
+    local s = {
+        slope = slope,
+        rad = rad,
+        factor = sFactor,
+        length = length,
+        trans = trans,
+        height = slope * (length - trans.length * nbTr) + trans.dz * nbTr
+    }
+    return {
+        slope = s,
+        slopeProfile = straightProfile(s),
+        height = s.height
+    }
+end
+
+
+local composite = function(config)
+    local offsets = junction.buildCoors(config.nbTracks, config.nbTracks)
+    local guideline = arc.byOR(coor.xyz(config.r, 0, 0), abs(config.r))
+    
+    local tracks = offsets.tracks * pipe.map(function(o) return guideline + o end)
+        * pipe.map(function(tr)
+            local fn = jA.retriveFn(config)
+            return {
+                guidelines = fn.retriveArc(tr),
+                fn = fn,
+                config = config,
+            }
+        end)
+    
+    local walls = offsets.walls * pipe.map(function(o) return func.with(guideline + o, {xOffset = o}) end)
+        * pipe.map(function(wa)
+            local fn = jA.retriveFn(config)
+            return {
+                guidelines = fn.retriveArc(wa),
+                fn = fn,
+                config = config,
+            }
+        end)
+    
+    return {
+        edges = retriveTracks(tracks),
+        polys = jA.retrivePolys(tracks, 1),
+        surface = jA.retriveTrackSurfaces(tracks),
+    -- walls = jA.retriveWalls(walls)
+    }
+end
+local function params()
+    return {
+        paramsutil.makeTrackTypeParam(),
+        paramsutil.makeTrackCatenaryParam(),
+        {
+            key = "nbTracks",
+            name = _("Number of tracks"),
+            values = {_("1"), _("2"), _("3"), _("4"), _("5"), _("6"), _("7"), _("8"), _("9"), _("10"), _("12"), },
+            defaultIndex = 1
+        },
+        {
+            key = "lengthD",
+            name = _("Length") .. ("x 10m"),
+            values = func.seqMap({0, 9}, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "lengthC",
+            name = "x 100m",
+            values = func.seqMap({0, 9}, tostring),
+            defaultIndex = 1
+        },
+        {
+            key = "lengthM",
+            name = _("x 1000m"),
+            values = func.seqMap({0, 9}, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "sign",
+            name = _("Radius") .. ("(m)"),
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "radius",
+            name = "",
+            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+            defaultIndex = 0
+        },
+        {
+            key = "slope",
+            name = _("Slope(‰)"),
+            values = func.map(slopeList, tostring),
+            defaultIndex = #slopeList - 1
+        },
+        {
+            key = "paraTracks",
+            name = _("Retaining walls"),
+            values = {_("None"), _("Both"), _("Inner"), _("Outer")},
+            defaultIndex = 0
+        },
+        {
+            key = "paraTracks",
+            name = "",
+            values = {_("Concrete"), _("Stone brick"), _("Noise barrier")},
+            defaultIndex = 0
+        }
+    }
+
+end
+
+local function defaultParams(param)
+    local function limiter(d, u)
+        return function(v) return v and v < u and v or d end
+    end
+    
+    func.forEach(params(), function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
+end
+
+local updateFn = function(models)
+    return function(params)
+            
+            defaultParams(params)
+            
+            local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
+            local catenary = params.catenary == 1
+            local trackBuilder = trackEdge.builder(catenary, trackType)
+            
+            local nbTracks = params.nbTracks + 1
+            local slope = slopeList[params.slope + 1] * 0.001
+            local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
+            local length = params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000
+            
+            local surface = composite(func.with(
+                {
+                    initRad = radius > 0 and math.pi or 0,
+                    length = length,
+                    slope = slope,
+                    r = radius,
+                    nbTracks = nbTracks,
+                    radFactor = 1,
+                    frac = 1,
+                    models = models,
+                    inner = func.contains({1, 2}, params.paraTracks),
+                    outer = func.contains({1, 3}, params.paraTracks)
+                }, generateSlope(slope, length))
+            )
+            
+            return
+                {
+                    edgeLists =
+                    {
+                        pipe.new * surface.edges * station.prepareEdges * trackBuilder.normal(),
+                    },
+                    models = {}--(surface.walls + surface.surface) * pipe.flatten(),
+                -- terrainAlignmentLists = jM.mergePoly({
+                -- equal = jM.projectPolys(coor.transZ(-0.1))(surface.polys.polys),
+                -- slot = jM.projectPolys(coor.transZ(-0.1))(surface.polys.trackPolys),
+                -- })
+                }
+    end
+end
+
+
+function data()
+    return {
+        type = "ASSET_DEFAULT",
+        description = {
+            name = _("Parallel tracks"),
+            description = _("A compact tunnel entry")
+        },
+        availability = {
+            yearFrom = 1892
+        },
+        buildMode = "SINGLE",
+        categories = {"misc"},
+        order = 27218,
+        skipCollision = false,
+        autoRemovable = false,
+        params = params(),
+        
+        updateFn = updateFn(
+            {
+                mSidePillar = "flying_junction/concrete/pillar_side.mdl",
+                mRoofFenceF = "flying_junction/concrete/roof_fence_front.mdl",
+                mRoofFenceS = "flying_junction/concrete/roof_fence_side.mdl",
+                mRoof = "flying_junction/concrete/roof.mdl",
+                bridgeType = "z_concrete_flying_junction.lua",
+            }
+    )
+    }
+
+end

@@ -7,7 +7,7 @@ local descCN = [[]]
 function data()
     return {
         en = {
-            ["name"] = "Parameterized tracks",
+            ["name"] = "Track Design Patterns",
             ["desc"] = descEN,
         },
         fr = {
