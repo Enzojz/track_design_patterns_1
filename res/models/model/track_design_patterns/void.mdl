@@ -1,0 +1,19 @@
+function data()
+    return {
+        collider = {
+            params = {},
+            type = "MESH",
+        },
+        lods = {
+            {
+                children = {},
+                matConfigs = {},
+                static = false,
+                visibleFrom = 0,
+                visibleTo = 1000,
+            },
+        },
+        metadata = {},
+    
+    }
+end
