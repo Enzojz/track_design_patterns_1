@@ -93,6 +93,12 @@ local function params()
         
         },
         {
+            key = "signalPattern",
+            name = _("Signal Pattern"),
+            values = {_("LRLR"), _("RLRL"), ("LLRR"), _("RRLL"), _("LLLL"), _("RRRR")},
+            defaultIndex = 0,
+        },
+        {
             key = "paraTracks",
             name = sp .. "\n" .. _("Retaining walls"),
             values = {_("None"), _("Both"), _("Inner"), _("Outer")},
@@ -157,6 +163,7 @@ local updateFn = function(models)
             end
         
         local guidelines = offsets.tracks
+            * (radius > 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
                 local g = (guideline + o)
                 return limits
@@ -179,28 +186,45 @@ local updateFn = function(models)
             * pipe.map(pipe.map(pipe.range(1, 2)))
             * pipe.map(pipe.map2(zsList, function(a, zs) return func.map2(a, zs, function(ar, nz) return func.map2(ar, nz, coor.apply) end) end))
             * pipe.map(function(segs) return pipe.new
-                * func.map(segs, function(e) return {
+                * func.map2(segs, func.seq(1, #segs), function(e, i) return {
                     edge = pipe.new * e,
-                    snap = pipe.new / {false, false} / {false, false}
+                    snap = pipe.new / {i == 1, false} / {false, i == #segs}
                 } end)
             end)
             * pipe.map(station.joinEdges)
             * pipe.map(station.mergeEdges)
         
+        local signalPattern = {
+            func.seqMap({1, nbTracks}, function(i) return i % 2 == 1 end),
+            func.seqMap({1, nbTracks}, function(i) return i % 2 ~= 1 end),
+            func.seqMap({1, nbTracks}, function(i) return i <= nbTracks * 0.5 end),
+            func.seqMap({1, nbTracks}, function(i) return i > nbTracks * 0.5 end),
+            func.seqMap({1, nbTracks}, function(_) return true end),
+            func.seqMap({1, nbTracks}, function(_) return false end),
+        };
+        
+        local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
+
         return
             {
                 edgeLists =
                 {
                     pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * trackBuilder.normal(),
                 },
-                edgeObjects = func.seqMap({0, (nbTracks * #limits) - 1}, function(n)
-                    return {
-                        edge = n * 2,
-                        param = 0.05,
-                        left = false,
-                        model = "railroad/signal_new_block.mdl"
-                    }
-                end),
+                edgeObjects = pipe.new
+                * signalPattern[params.signalPattern + 1]
+                * pipe.map2(func.seq(0, nbTracks - 1),
+                    function(p, i)
+                        return func.seqMap({0, #limits - 1}, function(n)
+                            return {
+                                edge = (i * #limits + n) * 2 + (p and 1 or 0),
+                                param = p and signalOffset or 1 - signalOffset,
+                                left = p,
+                                model = "railroad/signal_new_block.mdl"
+                            }
+                        end)
+                    end)
+                * pipe.flatten(),
                 models = {}--(surface.walls + surface.surface) * pipe.flatten(),
             -- terrainAlignmentLists = jM.mergePoly({
             -- equal = jM.projectPolys(coor.transZ(-0.1))(surface.polys.polys),

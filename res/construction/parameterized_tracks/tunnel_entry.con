@@ -106,8 +106,8 @@ local composite = function(config)
         func.map(offsets.tracks, function(o) return
             {
                 station.newModel(config.models.mRoofFenceF, coor.trans({x = o, z = -11, y = 0})),
-                station.newModel(config.models.mRoofFenceF, coor.trans({x = o, z = -12.5, y = 0})),
-                station.newModel(config.models.mRoof, coor.scale({x = 1.8, y = 0.8, z = 1}), coor.trans({x = o, z = -11 + 0.0001, y = 2}))
+                station.newModel(config.models.mRoofFenceF, coor.trans({x = o, z = -11.5, y = 0})),
+                station.newModel(config.models.mRoof, coor.scale({x = 1.8, y = 0.8, z = 1}), coor.trans({x = o, z = -11 + 0.0001, y = 2}), coor.scaleZ(0.5))
             }
         end)
     
@@ -218,7 +218,7 @@ local updateFn = function(models)
         local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
-        local height = 9.5
+        local height = 8.5
         
         local nbTracks = params.nbTracks + 1
         local slope = (params.slopeSign == 0 and 1 or -1) * slopeList[params.slope + 1] * 0.001
