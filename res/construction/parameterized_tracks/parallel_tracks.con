@@ -95,7 +95,7 @@ local function params()
         {
             key = "signalPattern",
             name = _("Signal Pattern"),
-            values = {_("LRLR"), _("RLRL"), ("LLRR"), _("RRLL"), _("LLLL"), _("RRRR")},
+            values = {_("↓↑↓↑"), _("↑↓↑↓"), ("↓↓↑↑"), _("↑↑↓↓"), _("↓↓↓↓"), _("↑↑↑↑")},
             defaultIndex = 0,
         },
         {
