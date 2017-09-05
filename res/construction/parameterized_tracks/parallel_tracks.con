@@ -1,11 +1,14 @@
 local paramsutil = require "paramsutil"
 local func = require "flyingjunction/func"
 local coor = require "flyingjunction/coor"
+local line = require "flyingjunction/coorline"
 local trackEdge = require "flyingjunction/trackedge"
 local arc = require "flyingjunction/coorarc"
 local station = require "flyingjunction/stationlib"
 local pipe = require "flyingjunction/pipe"
 local junction = require "junction"
+
+local dump = require "datadumper"
 
 local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 
@@ -95,7 +98,7 @@ local function params()
         {
             key = "signalPattern",
             name = _("Signal Pattern"),
-            values = {_("↓↑↓↑"), _("↑↓↑↓"), ("↓↓↑↑"), _("↑↑↓↓"), _("↓↓↓↓"), _("↑↑↑↑")},
+            values = {"↓↑↓↑", "↑↓↑↓", "↓↓↑↑", "↑↑↓↓", "↓↓↓↓", "↑↑↑↑", "↕↕↕↕"},
             defaultIndex = 0,
         },
         {
@@ -138,15 +141,18 @@ local updateFn = function(models)
         local height = (params.dHSign == 0 and 1 or -1) * params.dHeight + params.dHeightD * 10
         local slope = height / length
         
-        
-        
         local offsets = junction.buildCoors(nbTracks, nbTracks)
         local guideline = arc.byOR(coor.xyz(radius, 0, 0), abs(radius))
         local initRad = radius > 0 and pi or 0
-        local dRad = length / radius < 2 * pi and length / radius or 2 * pi * 0.99
+        local dRad = math.abs(length / radius) < 2 * pi and -length / radius or 2 * pi * 0.99
         
         local function signalGrouping(result, leftLength)
             return leftLength <= 0 and result / 1 or signalGrouping(result / ((length - leftLength) / length), leftLength - signalSpacing)
+        end
+        
+        local fz = pipe.exec * function()
+            local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, height))
+            return function(rad) return (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y end
         end
         
         local limits = signalGrouping(pipe.new, length)
@@ -163,23 +169,20 @@ local updateFn = function(models)
             end
         
         local guidelines = offsets.tracks
-            * (radius > 0 and pipe.noop() or pipe.rev())
+            * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
                 local g = (guideline + o)
                 return limits
                     * pipe.map(function(l) return func.with(g:withLimits(l), {offset = o}) end)
             end)
         
-        local zsList = signalGrouping(pipe.new, length)
-            * function(r) return func.map2(
-                func.range(r, 1, #r - 1),
-                func.range(r, 2, #r),
-                function(f, t) return {
-                    {coor.transZ(f * height), coor.transZ((f + t) * 0.5 * height), coor.transZ(slope), coor.transZ(slope)},
-                    {coor.transZ((f + t) * 0.5 * height), coor.transZ(t * height), coor.transZ(slope), coor.transZ(slope)}
+        local zsList = limits
+            * pipe.map(function(l)
+                return {
+                    {coor.transZ(fz(l.inf)), coor.transZ(fz(l.mid)), coor.transZ(slope), coor.transZ(slope)},
+                    {coor.transZ(fz(l.mid)), coor.transZ(fz(l.sup)), coor.transZ(slope), coor.transZ(slope)}
                 }
-                end)
-            end
+            end)
         
         local arcs = guidelines
             * pipe.map(pipe.map(junction.generateArc))
@@ -194,42 +197,59 @@ local updateFn = function(models)
             * pipe.map(station.joinEdges)
             * pipe.map(station.mergeEdges)
         
-        local signalPattern = {
-            func.seqMap({1, nbTracks}, function(i) return i % 2 == 1 end),
-            func.seqMap({1, nbTracks}, function(i) return i % 2 ~= 1 end),
-            func.seqMap({1, nbTracks}, function(i) return i <= nbTracks * 0.5 end),
-            func.seqMap({1, nbTracks}, function(i) return i > nbTracks * 0.5 end),
-            func.seqMap({1, nbTracks}, function(_) return true end),
-            func.seqMap({1, nbTracks}, function(_) return false end),
-        };
         
         local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
-
+        
+        local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
+        local rightSignal = function(i) return i % 2 == 1 and {{false, 1 - signalOffset}} or {} end
+        
+        local signalPattern = {
+            function(n, i) return n % 2 == 1 and leftSignal(i) or rightSignal(i) end,
+            function(n, i) return n % 2 ~= 1 and leftSignal(i) or rightSignal(i) end,
+            function(n, i) return n <= nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
+            function(n, i) return n > nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
+            function(_, i) return leftSignal(i) end,
+            function(_, i) return rightSignal(i) end,
+            function(_, i) return i == 1 and {{true, signalOffset}} or (i == #limits * 2 and {{false, 1 - signalOffset}} or {}) end
+        };
+        
+        local pattern = signalPattern[params.signalPattern + 1]
+        
+        local polys = guidelines
+            * pipe.map(function(gs) return gs[1]:withLimits({
+                inf = initRad,
+                mid = initRad + 0.5 * dRad,
+                sup = initRad + dRad
+            }) end)
+            * function(g) return junction.generatePolyArc(g, "inf", "sup")(0, 3.5) end
+            * pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad))(p) end))
+        
         return
             {
                 edgeLists =
                 {
-                    pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * trackBuilder.normal(),
+                    pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * trackBuilder.nonAligned(),
                 },
                 edgeObjects = pipe.new
-                * signalPattern[params.signalPattern + 1]
-                * pipe.map2(func.seq(0, nbTracks - 1),
-                    function(p, i)
-                        return func.seqMap({0, #limits - 1}, function(n)
+                * func.seqMap({0, nbTracks - 1}, function(n) return
+                    func.seqMap({0, #limits * 2 - 1}, function(i) return
+                        func.map(pattern(n + 1, i + 1), function(p)
+                            local isLeft, pos = table.unpack(p)
                             return {
-                                edge = (i * #limits + n) * 2 + (p and 1 or 0),
-                                param = p and signalOffset or 1 - signalOffset,
-                                left = p,
+                                edge = n * #limits * 2 + i,
+                                param = pos,
+                                left = isLeft,
                                 model = "railroad/signal_new_block.mdl"
                             }
                         end)
                     end)
+                end)
+                * pipe.flatten()
                 * pipe.flatten(),
-                models = {}--(surface.walls + surface.surface) * pipe.flatten(),
-            -- terrainAlignmentLists = jM.mergePoly({
-            -- equal = jM.projectPolys(coor.transZ(-0.1))(surface.polys.polys),
-            -- slot = jM.projectPolys(coor.transZ(-0.1))(surface.polys.trackPolys),
-            -- })
+                models = {}, --(surface.walls + surface.surface) * pipe.flatten(),
+                terrainAlignmentLists = station.mergePoly({
+                    equal = station.projectPolys(coor.I())(polys)
+                })
             }
     end
 end
