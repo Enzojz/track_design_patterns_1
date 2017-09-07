@@ -10,10 +10,27 @@ local junction = require "junction"
 
 local dump = require "datadumper"
 
-local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
-
 local abs = math.abs
 local pi = math.pi
+
+local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local wallList = {
+    "flying_junction/concrete/pillar_side.mdl",
+    "flying_junction/brick/pillar_side.mdl",
+    "asset/track_multi_sound_insulation_10m.mdl"
+}
+local wallLengthList = {5, 5, 10}
+local wallTransList = {
+    function(h) return coor.scaleX(2) * coor.transZ((h > 0 and h or 0) - 11) end,
+    function(h) return coor.scaleX(2) * coor.transZ((h > 0 and h or 0) - 11) end,
+    function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
+}
+
+local function mPlace(guideline, rad1, rad2)
+    local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
+    local pt = guideline:pt(rad)
+    return coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+end
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -102,19 +119,54 @@ local function params()
             defaultIndex = 0,
         },
         {
-            key = "paraTracks",
-            name = sp .. "\n" .. _("Retaining walls"),
-            values = {_("None"), _("Both"), _("Inner"), _("Outer")},
+            key = "wallASign",
+            name = sp .. "\n" .. _("Wall A") .. "\n" .. _("Height"),
+            values = {"+", "-"},
             defaultIndex = 0
         },
         {
-            key = "paraTracks",
+            key = "wallAHeight",
             name = "",
+            values = func.seqMap({0, 11}, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "wallBSign",
+            name = sp .. "\n" .. _("Wall B") .. "\n" .. _("Height"),
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "wallBHeight",
+            name = "",
+            values = func.seqMap({0, 11}, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "wallType",
+            name = sp .. "\n" .. _("Wall Type"),
             values = {_("Concrete"), _("Stone brick"), _("Noise barrier")},
+            defaultIndex = 0
+        },
+        {
+            key = "wallOffset",
+            name = "Wall-Track distance",
+            values = func.seqMap({0, 8}, function(n) return tostring(n * 0.5) end),
+            defaultIndex = 1
+        },
+        {
+            key = "terrain",
+            name = _("Terrain Alignment"),
+            values = {_("Normal"), _("Sharp")},
+            defaultIndex = 0
+        },
+        {
+            key = "height",
+            name = _("Altitude Adjustment"),
+            values = func.seqMap({0, 10}, tostring),
             defaultIndex = 0
         }
     }
-
 end
 
 local function defaultParams(param)
@@ -142,7 +194,6 @@ local updateFn = function(models)
         local slope = height / length
         
         local offsets = junction.buildCoors(nbTracks, nbTracks)
-        local guideline = arc.byOR(coor.xyz(radius, 0, 0), abs(radius))
         local initRad = radius > 0 and pi or 0
         local dRad = math.abs(length / radius) < 2 * pi and -length / radius or 2 * pi * 0.99
         
@@ -167,6 +218,13 @@ local updateFn = function(models)
                     }
                 end)
             end
+        
+        local guideline = arc.byOR(coor.xyz(radius, 0, 0), abs(radius)):withLimits({
+            inf = initRad,
+            mid = initRad + 0.5 * dRad,
+            sup = initRad + dRad,
+            offset = 0
+        })
         
         local guidelines = offsets.tracks
             * (radius < 0 and pipe.noop() or pipe.rev())
@@ -203,7 +261,7 @@ local updateFn = function(models)
         local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
         local rightSignal = function(i) return i % 2 == 1 and {{false, 1 - signalOffset}} or {} end
         
-        local signalPattern = {
+        local signalPattern = ({
             function(n, i) return n % 2 == 1 and leftSignal(i) or rightSignal(i) end,
             function(n, i) return n % 2 ~= 1 and leftSignal(i) or rightSignal(i) end,
             function(n, i) return n <= nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
@@ -211,21 +269,61 @@ local updateFn = function(models)
             function(_, i) return leftSignal(i) end,
             function(_, i) return rightSignal(i) end,
             function(_, i) return i == 1 and {{true, signalOffset}} or (i == #limits * 2 and {{false, 1 - signalOffset}} or {}) end
-        };
+        })[params.signalPattern + 1];
         
-        local pattern = signalPattern[params.signalPattern + 1]
+        local wallHeight = {
+            A = params.wallAHeight * (params.wallASign == 0 and 1 or -1),
+            B = params.wallBHeight * (params.wallBSign == 0 and 1 or -1)
+        }
         
-        local polys = guidelines
-            * pipe.map(function(gs) return gs[1]:withLimits({
-                inf = initRad,
-                mid = initRad + 0.5 * dRad,
-                sup = initRad + dRad
-            }) end)
-            * function(g) return junction.generatePolyArc(g, "inf", "sup")(0, 3.5) end
-            * pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad))(p) end))
+        local wallGuidelines = offsets.walls
+            * (radius < 0 and pipe.noop() or pipe.rev())
+            * pipe.map(function(o)
+                return func.with(guideline + o + params.wallOffset * 0.5 * (o > 0 and 1 or -1), {offset = o})
+            end)
+        
+        local restrictedWallGuidelines = offsets.walls
+            * (radius < 0 and pipe.noop() or pipe.rev())
+            * pipe.map(function(o)
+                return pipe.new
+                    * func.seq(-0.5, params.wallOffset * 0.5)
+                    * pipe.map(function(ro) return ro * (o > 0 and 1 or -1) end)
+                    * pipe.map(function(ro) return guideline + o + ro end)
+            end)
+        
+        local polys = pipe.new
+            / {g = {wallGuidelines[1], guideline}, o = wallHeight.A > 0 and 1 or -1}
+            / {g = {guideline, wallGuidelines[2]}, o = wallHeight.B > 0 and 1 or -1}
+            * pipe.map(function(g) return junction.generatePolyArc(g.g, "inf", "sup")(0, g.o) end)
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad))(p) end)))
+        
+        local wallModel = wallList[params.wallType + 1]
+        local wallLength = wallLengthList[params.wallType + 1]
+        local wallTrans = wallTransList[params.wallType + 1]
+        
+        local makeWallA = junction.makeFn(wallModel, mPlace, wallTrans(wallHeight.A), wallLength)
+        local makeWallB = junction.makeFn(wallModel, mPlace, wallTrans(wallHeight.B), wallLength)
+        
+        local walls = pipe.new
+            + {wallHeight.A == 0 and {} or
+                (
+                wallHeight.A > 0 and
+                pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten() or
+                restrictedWallGuidelines[1] * pipe.map(makeWallA) * pipe.map(pipe.flatten()) * pipe.flatten()
+            )
+            }
+            + {wallHeight.B == 0 and {} or
+                (
+                wallHeight.B > 0 and
+                pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten() or
+                restrictedWallGuidelines[2] * pipe.map(makeWallB) * pipe.map(pipe.flatten()) * pipe.flatten()
+            )
+            }
+
         
         return
-            {
+            pipe.new
+            * {
                 edgeLists =
                 {
                     pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * trackBuilder.nonAligned(),
@@ -233,7 +331,7 @@ local updateFn = function(models)
                 edgeObjects = pipe.new
                 * func.seqMap({0, nbTracks - 1}, function(n) return
                     func.seqMap({0, #limits * 2 - 1}, function(i) return
-                        func.map(pattern(n + 1, i + 1), function(p)
+                        func.map(signalPattern(n + 1, i + 1), function(p)
                             local isLeft, pos = table.unpack(p)
                             return {
                                 edge = n * #limits * 2 + i,
@@ -246,11 +344,29 @@ local updateFn = function(models)
                 end)
                 * pipe.flatten()
                 * pipe.flatten(),
-                models = {}, --(surface.walls + surface.surface) * pipe.flatten(),
-                terrainAlignmentLists = station.mergePoly({
-                    equal = station.projectPolys(coor.I())(polys)
-                })
+                models = walls * pipe.flatten(),
+                terrainAlignmentLists = station.mergePoly(
+                    params.terrain == 0 and
+                    {
+                        equal = station.projectPolys(coor.I())(polys * pipe.flatten())
+                    }
+                    or
+                    {
+                        less = station.projectPolys(coor.transZ(math.max(wallHeight.A, wallHeight.B)))(polys * pipe.flatten()),
+                        platform = station.projectPolys(coor.I())(polys * pipe.flatten()),
+                        slot = station.projectPolys(coor.I())(polys * pipe.flatten())
+                    }
+                ),
+                groundFaces = polys
+                * pipe.flatten()
+                * pipe.mapFlatten(function(p)
+                    return {
+                        {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}},
+                        {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast"}}}
+                    }
+                end)
             }
+            * station.setHeight(-params.height)
     end
 end
 
