@@ -1,0 +1,31 @@
+function data() return 
+  { animations = {  }, matConfigs = { { 0 } }, 
+    subMeshes = 
+      { 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 2424, offset = 29088 }, 
+              position = 
+                { count = 2424, offset = 29088 }, 
+              tangent = 
+                { count = 2424, offset = 29088 }, 
+              uv0 = 
+                { count = 2424, offset = 29088 }, 
+             }, 
+          materials = { "flying_junction/brick.mtl" }
+         }
+       }, 
+    vertexAttr = 
+      { 
+        normal = 
+          { count = 7272, numComp = 3, offset = 12120 }, 
+        position = 
+          { count = 7272, numComp = 3, offset = 0 }, 
+        tangent = 
+          { count = 9696, numComp = 4, offset = 19392 }, 
+        uv0 = 
+          { count = 4848, numComp = 2, offset = 7272 }, 
+       }
+   } end

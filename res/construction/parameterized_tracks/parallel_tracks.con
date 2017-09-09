@@ -15,22 +15,18 @@ local pi = math.pi
 
 local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local wallList = {
-    "flying_junction/concrete/pillar_side.mdl",
-    "flying_junction/brick/pillar_side.mdl",
+    "track_design_patterns/concrete_wall.mdl",
+    "track_design_patterns/brick_wall.mdl",
+    "track_design_patterns/arch_wall.mdl",
     "asset/track_multi_sound_insulation_10m.mdl"
 }
-local wallLengthList = {5, 5, 10}
+local wallLengthList = {5, 5, 5, 10}
 local wallTransList = {
-    function(h) return coor.scaleX(2) * coor.transZ((h > 0 and h or 0) - 11) end,
-    function(h) return coor.scaleX(2) * coor.transZ((h > 0 and h or 0) - 11) end,
+    function(h) return coor.scaleX(1) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.scaleX(1) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.scaleX(1) * coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
-
-local function mPlace(guideline, rad1, rad2)
-    local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
-    local pt = guideline:pt(rad)
-    return coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
-end
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -145,7 +141,7 @@ local function params()
         {
             key = "wallType",
             name = sp .. "\n" .. _("Wall Type"),
-            values = {_("Concrete"), _("Stone brick"), _("Noise barrier")},
+            values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
             defaultIndex = 0
         },
         {
@@ -286,40 +282,45 @@ local updateFn = function(models)
             * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
                 return pipe.new
-                    * func.seq(-0.5, params.wallOffset * 0.5)
+                    * func.seq(-0.24, params.wallOffset * 0.5)
                     * pipe.map(function(ro) return ro * (o > 0 and 1 or -1) end)
                     * pipe.map(function(ro) return guideline + o + ro end)
             end)
         
         local polys = pipe.new
-            / {g = {wallGuidelines[1], guideline}, o = wallHeight.A > 0 and 1 or -1}
-            / {g = {guideline, wallGuidelines[2]}, o = wallHeight.B > 0 and 1 or -1}
-            * pipe.map(function(g) return junction.generatePolyArc(g.g, "inf", "sup")(0, g.o) end)
+            / {g = {wallGuidelines[1], guideline}, o = wallHeight.A < 0 and -1 or 1}
+            / {g = {guideline, wallGuidelines[2]}, o = wallHeight.B < 0 and -1 or 1}
+            * pipe.map(function(g) return junction.generatePolyArc(g.g, "inf", "sup")(-0.2, g.o) end)
             * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad))(p) end)))
+        
+        local polysP = pipe.new
+            / {wallGuidelines[1], guideline}
+            / {guideline, wallGuidelines[2]}
+            * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad))(p) end)))
+        
         
         local wallModel = wallList[params.wallType + 1]
         local wallLength = wallLengthList[params.wallType + 1]
         local wallTrans = wallTransList[params.wallType + 1]
         
-        local makeWallA = junction.makeFn(wallModel, mPlace, wallTrans(wallHeight.A), wallLength)
-        local makeWallB = junction.makeFn(wallModel, mPlace, wallTrans(wallHeight.B), wallLength)
+        local function mPlace(guideline, rad1, rad2)
+            local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
+            local pt = guideline:pt(rad)
+            return coor.shearZoY(-slope) * coor.transZ(fz(rad)) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+        end
+        
+        local makeWallA = junction.makeFn(wallModel, mPlace, 
+        (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()) * wallTrans(wallHeight.A), wallLength)
+        local makeWallB = junction.makeFn(wallModel, mPlace, 
+        (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()) * wallTrans(wallHeight.B), wallLength)
         
         local walls = pipe.new
-            + {wallHeight.A == 0 and {} or
-                (
-                wallHeight.A > 0 and
-                pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten() or
-                restrictedWallGuidelines[1] * pipe.map(makeWallA) * pipe.map(pipe.flatten()) * pipe.flatten()
-            )
-            }
-            + {wallHeight.B == 0 and {} or
-                (
-                wallHeight.B > 0 and
-                pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten() or
-                restrictedWallGuidelines[2] * pipe.map(makeWallB) * pipe.map(pipe.flatten()) * pipe.flatten()
-            )
-            }
-
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten()}
+            + (wallHeight.A < 0 and restrictedWallGuidelines[1] * pipe.map(makeWallA) * pipe.map(pipe.flatten()) or {})
+            + (wallHeight.B < 0 and restrictedWallGuidelines[2] * pipe.map(makeWallB) * pipe.map(pipe.flatten()) or {})
+        
         
         return
             pipe.new
@@ -352,11 +353,13 @@ local updateFn = function(models)
                     }
                     or
                     {
-                        less = station.projectPolys(coor.transZ(math.max(wallHeight.A, wallHeight.B)))(polys * pipe.flatten()),
+                        less = station.projectPolys(coor.transZ(wallHeight.A > 0 and wallHeight.A or 0))(polys[1])
+                        + station.projectPolys(coor.transZ(wallHeight.B > 0 and wallHeight.B or 0))(polys[2]),
                         platform = station.projectPolys(coor.I())(polys * pipe.flatten()),
-                        slot = station.projectPolys(coor.I())(polys * pipe.flatten())
+                        slot = station.projectPolys(coor.I())(polysP * pipe.flatten())
                     }
-                ),
+                )({less = 1.5})
+                ,
                 groundFaces = polys
                 * pipe.flatten()
                 * pipe.mapFlatten(function(p)

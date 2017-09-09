@@ -1,9 +1,5 @@
 function data()
     return {
-        boundingInfo = {
-            bbMax = {0.25, 5, 11},
-            bbMin = {-0.25, -5, 0},
-        },
         collider = {
             params = {
             
@@ -14,7 +10,7 @@ function data()
             {
                 children = {
                     {
-                        id = "track_design_patterns/pillar_side.msh",
+                        id = "track_design_patterns/concrete_wall.msh",
                         transf = {
                             1, 0, 0, 0,
                             0, 1, 0, 0,
