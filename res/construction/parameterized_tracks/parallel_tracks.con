@@ -76,7 +76,7 @@ local function params()
         {
             key = "slopeB",
             name = _("End") .. "(‰)",
-            values = func.map(slopeList, tostring),
+            values = pipe.new + {_("Sync")} + func.map(slopeList, tostring),
             defaultIndex = 0
         },
         {
@@ -157,7 +157,7 @@ local function params()
         {
             key = "wallBType",
             name = _("Type"),
-            values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
+            values = {_("Sync"), _("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
             defaultIndex = 0
         },
         {
@@ -202,7 +202,7 @@ local updateFn = function()
         local signalSpacing = (function(s) return s == 0 and length or s end)(params.signalSpacingD * 10 + params.signalSpacingC * 100 + params.signalSpacingM * 1000)
         
         local slopeA = slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001
-        local slopeB = slopeList[params.slopeB + 1] * (params.slopeSignB == 0 and 1 or -1) * 0.001
+        local slopeB = params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001
         
         local offsets = junction.buildCoors(nbTracks, nbTracks)
         local initRad = radius > 0 and pi or 0
@@ -348,14 +348,24 @@ local updateFn = function()
             end
         end
         
-        local makeWallA = junction.makeFn(wallList[params.wallAType + 1],
+        local retriveWallA = function(ls)
+            return ls[params.wallAType + 1]
+        end
+
+        local retriveWallB = function(ls)
+            return params.wallBType == 0 and ls[params.wallAType + 1] or ls[params.wallBType]
+        end
+
+        local makeWallA = junction.makeFn(
+            retriveWallA(wallList),
             mPlace(vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1])),
-            wallTransList[params.wallAType + 1](wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()),
-            wallLengthList[params.wallAType + 1])
-        local makeWallB = junction.makeFn(wallList[params.wallBType + 1],
+            retriveWallA(wallTransList)(wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()),
+            retriveWallA(wallLengthList))
+        local makeWallB = junction.makeFn(
+            retriveWallB(wallList),
             mPlace(vfz(wallHeight.B, func.seq(-12, 12)[params.wallBVar + 1])),
-            wallTransList[params.wallBType + 1](wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()),
-            wallLengthList[params.wallBType + 1])
+            retriveWallB(wallTransList)(wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()),
+            retriveWallB(wallLengthList))
         
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
