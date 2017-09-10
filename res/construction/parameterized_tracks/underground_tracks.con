@@ -8,8 +8,6 @@ local station = require "flyingjunction/stationlib"
 local pipe = require "flyingjunction/pipe"
 local junction = require "junction"
 
-local dump = require "datadumper"
-
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
