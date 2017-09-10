@@ -2,6 +2,7 @@ local paramsutil = require "paramsutil"
 local func = require "flyingjunction/func"
 local coor = require "flyingjunction/coor"
 local line = require "flyingjunction/coorline"
+local arc = require "flyingjunction/coorarc"
 local trackEdge = require "flyingjunction/trackedge"
 local arc = require "flyingjunction/coorarc"
 local station = require "flyingjunction/stationlib"
@@ -12,7 +13,11 @@ local dump = require "datadumper"
 
 local abs = math.abs
 local pi = math.pi
+local atan = math.atan
+local cos = math.cos
+local sin = math.sin
 
+local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local wallList = {
     "track_design_patterns/concrete_wall.mdl",
@@ -22,9 +27,9 @@ local wallList = {
 }
 local wallLengthList = {5, 5, 5, 10}
 local wallTransList = {
-    function(h) return coor.scaleX(1) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.scaleX(1) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.scaleX(1) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.transX(-0.7) * coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
@@ -40,8 +45,8 @@ local function params()
             defaultIndex = 1
         },
         {
-            key = "lengthD",
-            name = sp .. "\n" .. _("Length") .. " \n\n×10m",
+            key = "lengthM",
+            name = sp .. "\n" .. _("Length") .. " \n\n×1000m",
             values = func.seqMap({0, 9}, tostring),
             defaultIndex = 0
         },
@@ -52,44 +57,50 @@ local function params()
             defaultIndex = 1
         },
         {
-            key = "lengthM",
-            name = "×1000m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "sign",
-            name = sp .. "\n" .. _("Radius") .. "(m)",
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "radius",
-            name = "",
-            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
-            defaultIndex = 0
-        },
-        {
-            key = "dHSign",
-            name = sp .. "\n" .. _("ΔHeight") .. "(m)",
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "dHeight",
-            name = "",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "dHeightD",
+            key = "lengthD",
             name = "×10m",
             values = func.seqMap({0, 9}, tostring),
             defaultIndex = 0
         },
         {
-            key = "signalSpacingD",
-            name = sp .. "\n" .. _("Signal Spacing") .. "\n\n×10m",
+            key = "sign",
+            name = sp,
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "radius",
+            name = _("Radius") .. "(m)",
+            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+            defaultIndex = 0
+        },
+        {
+            key = "slopeSignA",
+            name = sp .. "\n" .. _("Slope"),
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "slopeA",
+            name = _("Begin") .. "(‰)",
+            values = func.map(slopeList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "slopeSignB",
+            name = "",
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "slopeB",
+            name = _("End") .. "(‰)",
+            values = func.map(slopeList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "signalSpacingM",
+            name = sp .. "\n" .. _("Signal Spacing") .. "\n\n×1000m",
             values = func.seqMap({0, 9}, tostring),
             defaultIndex = 0
         
@@ -102,8 +113,8 @@ local function params()
         
         },
         {
-            key = "signalSpacingM",
-            name = "×1000m",
+            key = "signalSpacingD",
+            name = "×10m",
             values = func.seqMap({0, 9}, tostring),
             defaultIndex = 0
         
@@ -116,25 +127,25 @@ local function params()
         },
         {
             key = "wallASign",
-            name = sp .. "\n" .. _("Wall A") .. "\n" .. _("Height"),
+            name = sp .. "\n" .. _("Wall A"),
             values = {"+", "-"},
             defaultIndex = 0
         },
         {
             key = "wallAHeight",
-            name = "",
+            name = _("Height"),
             values = func.seqMap({0, 11}, tostring),
             defaultIndex = 0
         },
         {
             key = "wallBSign",
-            name = sp .. "\n" .. _("Wall B") .. "\n" .. _("Height"),
+            name = sp .. "\n" .. _("Wall B"),
             values = {"+", "-"},
             defaultIndex = 0
         },
         {
             key = "wallBHeight",
-            name = "",
+            name = _("Height"),
             values = func.seqMap({0, 11}, tostring),
             defaultIndex = 0
         },
@@ -173,7 +184,7 @@ local function defaultParams(param)
     func.forEach(params(), function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
 end
 
-local updateFn = function(models)
+local updateFn = function()
     return function(params)
         defaultParams(params)
         
@@ -186,8 +197,8 @@ local updateFn = function(models)
         local length = params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000
         local signalSpacing = (function(s) return s == 0 and length or s end)(params.signalSpacingD * 10 + params.signalSpacingC * 100 + params.signalSpacingM * 1000)
         
-        local height = (params.dHSign == 0 and 1 or -1) * params.dHeight + params.dHeightD * 10
-        local slope = height / length
+        local slopeA = slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001
+        local slopeB = slopeList[params.slopeB + 1] * (params.slopeSignB == 0 and 1 or -1) * 0.001
         
         local offsets = junction.buildCoors(nbTracks, nbTracks)
         local initRad = radius > 0 and pi or 0
@@ -197,10 +208,25 @@ local updateFn = function(models)
             return leftLength <= 0 and result / 1 or signalGrouping(result / ((length - leftLength) / length), leftLength - signalSpacing)
         end
         
-        local fz = pipe.exec * function()
-            local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, height))
-            return function(rad) return (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y end
-        end
+        local fz =
+        (slopeA == slopeB) and
+            pipe.exec * function()
+                local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, slopeA * length))
+                return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = slopeA} end
+            end
+            or
+            pipe.exec * function()
+                local radRef = (slopeA > slopeB and 1 or -1) * 0.5 * pi
+                local radA, radB = atan(slopeA), atan(slopeB)
+                local r = length / (sin(radB) - sin(radA))
+                local arch = arc.byOR(coor.xy(0, cos(radA) * r), r)
+                return function(rad)
+                    local pt =
+                        func.min(arch / line.byVecPt(coor.xy(0, 1), coor.xy((rad - initRad) * length / dRad + r * sin(radA), 0))
+                            , function(a, b) return a:length() < b:length() end)
+                    return {z = pt.y, s = math.tan(arch:rad(pt) - radRef)}
+                end
+            end
         
         local limits = signalGrouping(pipe.new, length)
             * function(r) return func.map2(
@@ -233,8 +259,8 @@ local updateFn = function(models)
         local zsList = limits
             * pipe.map(function(l)
                 return {
-                    {coor.transZ(fz(l.inf)), coor.transZ(fz(l.mid)), coor.transZ(slope), coor.transZ(slope)},
-                    {coor.transZ(fz(l.mid)), coor.transZ(fz(l.sup)), coor.transZ(slope), coor.transZ(slope)}
+                    {coor.transZ(fz(l.inf).z), coor.transZ(fz(l.mid).z), coor.transZ(fz(l.inf).s), coor.transZ(fz(l.mid).s)},
+                    {coor.transZ(fz(l.mid).z), coor.transZ(fz(l.sup).z), coor.transZ(fz(l.mid).s), coor.transZ(fz(l.sup).s)}
                 }
             end)
         
@@ -282,8 +308,8 @@ local updateFn = function(models)
             * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
                 return pipe.new
-                    * func.seq(-0.24, params.wallOffset * 0.5)
-                    * pipe.map(function(ro) return ro * (o > 0 and 1 or -1) end)
+                    * func.seq(0.25, params.wallOffset * 0.25)
+                    * pipe.map(function(ro) return ro * 2 * (o > 0 and 1 or -1) end)
                     * pipe.map(function(ro) return guideline + o + ro end)
             end)
         
@@ -291,13 +317,13 @@ local updateFn = function(models)
             / {g = {wallGuidelines[1], guideline}, o = wallHeight.A < 0 and -1 or 1}
             / {g = {guideline, wallGuidelines[2]}, o = wallHeight.B < 0 and -1 or 1}
             * pipe.map(function(g) return junction.generatePolyArc(g.g, "inf", "sup")(-0.2, g.o) end)
-            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad))(p) end)))
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
         
         local polysP = pipe.new
             / {wallGuidelines[1], guideline}
             / {guideline, wallGuidelines[2]}
             * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
-            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad))(p) end)))
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
         
         
         local wallModel = wallList[params.wallType + 1]
@@ -307,20 +333,19 @@ local updateFn = function(models)
         local function mPlace(guideline, rad1, rad2)
             local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
             local pt = guideline:pt(rad)
-            return coor.shearZoY(-slope) * coor.transZ(fz(rad)) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+            return coor.shearZoY(-fz(rad).s) * coor.transZ(fz(rad).z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
         end
         
-        local makeWallA = junction.makeFn(wallModel, mPlace, 
-        (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()) * wallTrans(wallHeight.A), wallLength)
-        local makeWallB = junction.makeFn(wallModel, mPlace, 
-        (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()) * wallTrans(wallHeight.B), wallLength)
+        local makeWallA = junction.makeFn(wallModel, mPlace,
+            wallTrans(wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()), wallLength)
+        local makeWallB = junction.makeFn(wallModel, mPlace,
+            wallTrans(wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()), wallLength)
         
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
             + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten()}
             + (wallHeight.A < 0 and restrictedWallGuidelines[1] * pipe.map(makeWallA) * pipe.map(pipe.flatten()) or {})
             + (wallHeight.B < 0 and restrictedWallGuidelines[2] * pipe.map(makeWallB) * pipe.map(pipe.flatten()) or {})
-        
         
         return
             pipe.new
@@ -390,16 +415,7 @@ function data()
         -- skipCollision = false,
         -- autoRemovable = false,
         params = params(),
-        
-        updateFn = updateFn(
-            {
-                mSidePillar = "flying_junction/concrete/pillar_side.mdl",
-                mRoofFenceF = "flying_junction/concrete/roof_fence_front.mdl",
-                mRoofFenceS = "flying_junction/concrete/roof_fence_side.mdl",
-                mRoof = "flying_junction/concrete/roof.mdl",
-                bridgeType = "z_concrete_flying_junction.lua",
-            }
-    )
+        updateFn = updateFn()
     }
 
 end
