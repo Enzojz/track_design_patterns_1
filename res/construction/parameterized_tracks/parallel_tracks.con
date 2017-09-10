@@ -4,7 +4,6 @@ local coor = require "flyingjunction/coor"
 local line = require "flyingjunction/coorline"
 local arc = require "flyingjunction/coorarc"
 local trackEdge = require "flyingjunction/trackedge"
-local arc = require "flyingjunction/coorarc"
 local station = require "flyingjunction/stationlib"
 local pipe = require "flyingjunction/pipe"
 local junction = require "junction"
@@ -45,24 +44,6 @@ local function params()
             defaultIndex = 1
         },
         {
-            key = "lengthM",
-            name = sp .. "\n" .. _("Length") .. " \n\n×1000m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "lengthC",
-            name = "×100m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 1
-        },
-        {
-            key = "lengthD",
-            name = "×10m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        },
-        {
             key = "sign",
             name = sp,
             values = {"+", "-"},
@@ -99,6 +80,24 @@ local function params()
             defaultIndex = 0
         },
         {
+            key = "lengthM",
+            name = sp .. "\n" .. _("Length") .. " \n\n×1000m",
+            values = func.seqMap({0, 9}, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "lengthC",
+            name = "×100m",
+            values = func.seqMap({0, 9}, tostring),
+            defaultIndex = 1
+        },
+        {
+            key = "lengthD",
+            name = "×10m",
+            values = func.seqMap({0, 9}, tostring),
+            defaultIndex = 0
+        },
+        {
             key = "signalSpacingM",
             name = sp .. "\n" .. _("Signal Spacing") .. "\n\n×1000m",
             values = func.seqMap({0, 9}, tostring),
@@ -126,32 +125,26 @@ local function params()
             defaultIndex = 0,
         },
         {
-            key = "wallASign",
-            name = sp .. "\n" .. _("Wall A"),
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
             key = "wallAHeight",
-            name = _("Height"),
-            values = func.seqMap({0, 11}, tostring),
-            defaultIndex = 0
+            name = sp .. "\n" .. _("Wall A") .."\n".._("Height"),
+            values = pipe.new * {"↓", _("None")} + func.seqMap({1, 15}, tostring),
+            defaultIndex = 1
         },
         {
-            key = "wallBSign",
-            name = sp .. "\n" .. _("Wall B"),
-            values = {"+", "-"},
+            key = "wallAType",
+            name = _("Type"),
+            values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
             defaultIndex = 0
         },
         {
             key = "wallBHeight",
-            name = _("Height"),
-            values = func.seqMap({0, 11}, tostring),
-            defaultIndex = 0
+            name = sp .. "\n" .. _("Wall B") .."\n".._("Height"),
+            values = pipe.new * {"↓", _("None")} + func.seqMap({1, 15}, tostring),
+            defaultIndex = 1
         },
         {
-            key = "wallType",
-            name = sp .. "\n" .. _("Wall Type"),
+            key = "wallBType",
+            name = _("Type"),
             values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
             defaultIndex = 0
         },
@@ -169,9 +162,9 @@ local function params()
         },
         {
             key = "height",
-            name = _("Altitude Adjustment"),
-            values = func.seqMap({0, 10}, tostring),
-            defaultIndex = 0
+            name = _("Altitude Adjustment") .. "(m)",
+            values = func.seqMap({-10, 15}, tostring),
+            defaultIndex = 10
         }
     }
 end
@@ -180,7 +173,6 @@ local function defaultParams(param)
     local function limiter(d, u)
         return function(v) return v and v < u and v or d end
     end
-    
     func.forEach(params(), function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
 end
 
@@ -294,8 +286,8 @@ local updateFn = function()
         })[params.signalPattern + 1];
         
         local wallHeight = {
-            A = params.wallAHeight * (params.wallASign == 0 and 1 or -1),
-            B = params.wallBHeight * (params.wallBSign == 0 and 1 or -1)
+            A = func.seq(-1, 15)[params.wallAHeight + 1],
+            B = func.seq(-1, 15)[params.wallBHeight + 1]
         }
         
         local wallGuidelines = offsets.walls
@@ -325,21 +317,18 @@ local updateFn = function()
             * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
             * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
         
-        
-        local wallModel = wallList[params.wallType + 1]
-        local wallLength = wallLengthList[params.wallType + 1]
-        local wallTrans = wallTransList[params.wallType + 1]
-        
         local function mPlace(guideline, rad1, rad2)
             local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
             local pt = guideline:pt(rad)
             return coor.shearZoY(-fz(rad).s) * coor.transZ(fz(rad).z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
         end
         
-        local makeWallA = junction.makeFn(wallModel, mPlace,
-            wallTrans(wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()), wallLength)
-        local makeWallB = junction.makeFn(wallModel, mPlace,
-            wallTrans(wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()), wallLength)
+        local makeWallA = junction.makeFn(wallList[params.wallAType + 1], mPlace,
+            wallTransList[params.wallAType + 1](wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()),
+            wallLengthList[params.wallAType + 1])
+        local makeWallB = junction.makeFn(wallList[params.wallBType + 1], mPlace,
+            wallTransList[params.wallBType + 1](wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()),
+            wallLengthList[params.wallBType + 1])
         
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
@@ -394,7 +383,7 @@ local updateFn = function()
                     }
                 end)
             }
-            * station.setHeight(-params.height)
+            * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
 end
 
