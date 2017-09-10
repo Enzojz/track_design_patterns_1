@@ -131,16 +131,16 @@ local function params()
             defaultIndex = 1
         },
         {
+            key = "wallAVar",
+            name = _("Variance") .. "(m)",
+            values = func.seqMap({-12, 12}, tostring),
+            defaultIndex = 12
+        },
+        {
             key = "wallAType",
             name = _("Type"),
             values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
             defaultIndex = 0
-        },
-        {
-            key = "wallAVar",
-            name = _("Variance") .. "(m)",
-            values = func.seqMap({-5, 5}, tostring),
-            defaultIndex = 5
         },
         {
             key = "wallBHeight",
@@ -149,20 +149,20 @@ local function params()
             defaultIndex = 1
         },
         {
+            key = "wallBVar",
+            name = _("Variance") .. "(m)",
+            values = func.seqMap({-12, 12}, tostring),
+            defaultIndex = 12
+        },
+        {
             key = "wallBType",
             name = _("Type"),
             values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
             defaultIndex = 0
         },
         {
-            key = "wallBVar",
-            name = _("Variance") .. "(m)",
-            values = func.seqMap({-5, 5}, tostring),
-            defaultIndex = 5
-        },
-        {
             key = "wallOffset",
-            name = "Wall-Track distance",
+            name = sp .. "\n".. "Wall-Track distance",
             values = func.seqMap({0, 8}, function(n) return tostring(n * 0.5) end),
             defaultIndex = 1
         },
@@ -308,7 +308,7 @@ local updateFn = function()
                 va + h < 0 and -h or va
             
             local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, var))
-            return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (- ln.a / ln.b) / length * dRad} end
+            return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (-ln.a / ln.b) / length * dRad} end
         end
         
         local wallGuidelines = offsets.walls
@@ -342,18 +342,18 @@ local updateFn = function()
             return function(guideline, rad1, rad2)
                 local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
                 local z = fz(rad).z + vfz(rad).z
-                local s = -fz(rad).s - dump.dump(vfz(rad).s)
+                local s = -fz(rad).s - vfz(rad).s
                 local pt = guideline:pt(rad)
                 return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
             end
         end
         
-        local makeWallA = junction.makeFn(wallList[params.wallAType + 1], 
-            mPlace(vfz(wallHeight.A, func.seq(-5, 5)[params.wallAVar + 1])),
+        local makeWallA = junction.makeFn(wallList[params.wallAType + 1],
+            mPlace(vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1])),
             wallTransList[params.wallAType + 1](wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()),
             wallLengthList[params.wallAType + 1])
-        local makeWallB = junction.makeFn(wallList[params.wallBType + 1], 
-            mPlace(vfz(wallHeight.B, func.seq(-5, 5)[params.wallAVar + 1])),
+        local makeWallB = junction.makeFn(wallList[params.wallBType + 1],
+            mPlace(vfz(wallHeight.B, func.seq(-12, 12)[params.wallBVar + 1])),
             wallTransList[params.wallBType + 1](wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()),
             wallLengthList[params.wallBType + 1])
         
