@@ -26,11 +26,11 @@ local wallLengthList = {5, 5, 5, 10}
 local wallTransList = {
     function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.transX(-0.7) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
-local sizeSwitch = {6, 7, 9, 12, 18, 24, 36, 42, 50, 65}
+local sizeSwitch = {3.75, 4.5, 6, 7, 9, 12, 18, 24, 30, 36, 42, 50, 65}
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -38,10 +38,22 @@ local function params()
         paramsutil.makeTrackTypeParam(),
         paramsutil.makeTrackCatenaryParam(),
         {
+            key = "nbTracks",
+            name = _("Number of tracks"),
+            values = {_("1"), _("2"), _("3"), _("4"), _("5"), _("6")},
+            defaultIndex = 0
+        },
+        {
+            key = "type",
+            name = _("Type"),
+            values = {_("Left"), _("Wye"), _("Right")},
+            defaultIndex = 0
+        },
+        {
             key = "cot",
             name = "1/#",
             values = func.map(sizeSwitch, tostring),
-            defaultIndex = 3
+            defaultIndex = 5
         },
         {
             key = "slopeSign",
@@ -126,52 +138,125 @@ local updateFn = function()
         local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
+        local nbTracks = params.nbTracks + 1
+        local offsets = junction.buildCoors(nbTracks, nbTracks)
         
         local rad = atan(1 / sizeSwitch[params.cot + 1])
-        local radius = 1.5 * 0.5 / sin(0.5 * rad) ^ 2
+        local r = 5 * 0.5 * nbTracks / sin(0.5 * rad) ^ 2
+        
+        local radious = {
+            l = params.type == 2 and -junction.infi or -r,
+            r = params.type == 0 and junction.infi or r
+        }
+        
+        local initRad = {
+            l = 0,
+            r = pi
+        }
+        
+        local finalRad = {
+            l = params.type == 2 and r * rad / junction.infi or rad,
+            r = pi - (params.type == 0 and r * rad / junction.infi or rad)
+        }
         
         local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1)
         
-        local initRad = radius > 0 and pi or 0
-        local radr = rad
-        local radn = radius * radr / junction.infi
         local radc = 2.5 / junction.infi
         
-        local fn = arc.byOR(coor.xy(junction.infi, 0), junction.infi):withLimits({
-            sup = pi - radn * 1.05,
-            mid = pi,
-            inf = pi + radc,
-        })
+        local arcs = offsets.tracks
+            * pipe.map(function(o) return {
+                l = arc.byOR(coor.xy(radious.l, 0), -radious.l + o),
+                r = arc.byOR(coor.xy(radious.r, 0), radious.r - o)
+            } end
+            )
+            * function(g)
+                local l = g * pipe.map(pipe.select("l")) * pipe.zip(func.seq(1, #g), {"g", "i"})
+                local r = g * pipe.map(pipe.select("r")) * pipe.zip(func.seq(1, #g), {"g", "i"})
+                return
+                    {
+                        l = l
+                        * pipe.map(function(x)
+                            local rads = r * pipe.range(1, x.i - 1)
+                                * pipe.map(function(y) return pipe.new * (x.g - y.g) end)
+                                * pipe.map(pipe.filter(function(pt) return pt.y > 0 end))
+                                * pipe.flatten()
+                                * pipe.rev()
+                                * pipe.map(function(p) return x.g:rad(p) end)
+                            return (pipe.new + {initRad.l} + rads)
+                                * pipe.map2(rads / finalRad.l, function(l, r)
+                                    return x.g:withLimits({
+                                        sup = r,
+                                        mid = l,
+                                        inf = initRad.l - radc
+                                    })
+                                end)
+                        end),
+                        r = r
+                        * pipe.map(function(x)
+                            local rads = l * pipe.range(x.i + 1, #l)
+                                * pipe.map(function(y) return pipe.new * (x.g - y.g) end)
+                                * pipe.map(pipe.filter(function(pt) return pt.y > 0 end))
+                                * pipe.flatten()
+                                * pipe.map(function(p) return x.g:rad(p) end)
+                            return (pipe.new + {initRad.r} + rads)
+                                * pipe.map2(rads / finalRad.r, function(l, r)
+                                    return x.g:withLimits({
+                                        sup = r,
+                                        mid = l,
+                                        inf = initRad.r + radc
+                                    })
+                                end)
+                        end)
+                    }
+            end
+            * function(g)
+                local larc = g.l * pipe.map(pipe.map(junction.generateArc)) * pipe.map(pipe.map(pipe.select(2)))
+                local rarc = g.r * pipe.map(pipe.map(junction.generateArc)) * pipe.map(pipe.map(pipe.select(2)))
+                    * pipe.mapi(function(g, i)
+                        return pipe.new * g * pipe.mapi(function(a, j)
+                            return {
+                                larc[j + i - 1][j][1],
+                                (j + i) > #larc and a[2] or larc[i + j][j][2],
+                                a[3], a[4]
+                            }
+                        end)
+                    end)
+                return (larc + rarc) * pipe.flatten()
+            end
+            * pipe.map(function(a)
+                return {
+                    edge = pipe.new / a,
+                    snap = pipe.new / {false, false}
+                }
+            end)
+            * dump.dump
+            * station.mergeEdges
         
-        local fr = arc.byOR(coor.xy(radius, 0), radius):withLimits({
-            sup = initRad - radr * 1.05,
-            mid = initRad,
-            inf = initRad + radr * 1.05,
-        })
         
-        local c, n = table.unpack(func.range(junction.generateArc(fn), 1, 2))
-        local re = junction.generateArc(fr)[2]
         
-        re[1] = c[2]
-        re[3] = c[4]
         
-        local e = station.mergeEdges(pipe.new * {
-            {
-                edge = pipe.new / c,
-                snap = pipe.new / {true, false}
-            },
-            {
-                edge = pipe.new / n,
-                snap = pipe.new / {false, true}
-            },
-            {
-                edge = pipe.new / re,
-                snap = pipe.new / {false, true}
-            }
-        })
-        
-        local arcs = e
-        
+        --     local c, n = table.unpack(func.range(junction.generateArc(fn), 1, 2))
+        --     local re = junction.generateArc(fr)[2]
+        --     re[1] = c[2]
+        --     re[3] = c[4]
+        --     return {
+        --         {
+        --             edge = pipe.new / c,
+        --             snap = pipe.new / {true, false}
+        --         },
+        --         {
+        --             edge = pipe.new / n,
+        --             snap = pipe.new / {false, true}
+        --         },
+        --         {
+        --             edge = pipe.new / re,
+        --             snap = pipe.new / {false, true}
+        --         }
+        --     }
+        -- end
+        -- )
+        -- * pipe.flatten()
+        -- * station.mergeEdges
         -- local wallHeight = {
         --     A = func.seq(-1, 15)[params.wallAHeight + 1],
         --     B = func.seq(-1, 15)[params.wallBHeight + 1]
@@ -241,6 +326,7 @@ local updateFn = function()
                 {
                     pipe.new * {arcs} * station.prepareEdges * trackBuilder.normal(),
                 },
+                models = {}
             }
             * station.setSlope(slope)
             * station.setHeight(func.seq(-10, 15)[params.height + 1])

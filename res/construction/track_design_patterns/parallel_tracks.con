@@ -26,7 +26,7 @@ local wallLengthList = {5, 5, 5, 10}
 local wallTransList = {
     function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.transX(-0.7) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
@@ -167,7 +167,7 @@ local function params()
         {
             key = "terrain",
             name = _("Terrain Alignment"),
-            values = {_("Normal"), _("Sharp")},
+            values = {_("Normal"), _("Sharp"), _("Complet")},
             defaultIndex = 0
         },
         {
@@ -311,17 +311,19 @@ local updateFn = function()
         
         local wallGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o)
-                return func.with(guideline + o + params.wallOffset * 0.5 * (o > 0 and 1 or -1), {offset = o})
-            end)
+            * pipe.map(function(o) return guideline + o + params.wallOffset * 0.5 * (o > 0 and 1 or -1) end)
         
         local restrictedWallGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
+            * pipe.map(function(o) return guideline + o + (params.wallOffset * 0.5 - 1) * (o > 0 and 1 or -1) end)
+        
+        local wallLimitGuidelines = offsets.walls
+            * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
-                return pipe.new
-                    * func.seq(0.25, params.wallOffset * 0.25)
-                    * pipe.map(function(ro) return ro * 2 * (o > 0 and 1 or -1) end)
-                    * pipe.map(function(ro) return guideline + o + ro end)
+                return {
+                    guideline + o + params.wallOffset * 2.5 * (o > 0 and 1 or -1),
+                    guideline + o + params.wallOffset * 10 * (o > 0 and 1 or -1)
+                }
             end)
         
         local polys = pipe.new
@@ -333,6 +335,12 @@ local updateFn = function()
         local polysP = pipe.new
             / {wallGuidelines[1], guideline}
             / {guideline, wallGuidelines[2]}
+            * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
+        
+        local polysO = pipe.new
+            / wallLimitGuidelines[1]
+            / wallLimitGuidelines[2]
             * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
             * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
         
@@ -366,8 +374,8 @@ local updateFn = function()
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
             + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten()}
-            + (wallHeight.A < 0 and restrictedWallGuidelines[1] * pipe.map(makeWallA) * pipe.map(pipe.flatten()) or {})
-            + (wallHeight.B < 0 and restrictedWallGuidelines[2] * pipe.map(makeWallB) * pipe.map(pipe.flatten()) or {})
+            + {wallHeight.A < 0 and pipe.new * restrictedWallGuidelines[1] * makeWallA * pipe.flatten() or {}}
+            + {wallHeight.B < 0 and pipe.new * restrictedWallGuidelines[2] * makeWallB * pipe.flatten() or {}}
         
         return
             pipe.new
@@ -394,17 +402,29 @@ local updateFn = function()
                 * pipe.flatten(),
                 models = walls * pipe.flatten(),
                 terrainAlignmentLists = station.mergePoly(
-                    params.terrain == 0 and
+                    (
                     {
-                        equal = station.projectPolys(coor.I())(polys * pipe.flatten())
+                        {
+                            equal = station.projectPolys(coor.I())(polys * pipe.flatten())
+                        },
+                        {
+                            less =
+                            station.projectPolys(coor.transZ(wallHeight.A > 0 and wallHeight.A or 0))(polys[1])
+                            + station.projectPolys(coor.transZ(wallHeight.B > 0 and wallHeight.B or 0))(polys[2]),
+                            platform = station.projectPolys(coor.I())(polys * pipe.flatten()),
+                            slot = station.projectPolys(coor.I())(polysP * pipe.flatten())
+                        },
+                        {
+                            less =
+                            station.projectPolys(coor.transZ(wallHeight.A > 0 and wallHeight.A or 0))(polys[1])
+                            + station.projectPolys(coor.transZ(wallHeight.B > 0 and wallHeight.B or 0))(polys[2]),
+                            platform = station.projectPolys(coor.I())(polys * pipe.flatten())
+                            + (wallHeight.A > 0 and station.projectPolys(coor.transZ(wallHeight.A))(polysO[1]) or {})
+                            + (wallHeight.B > 0 and station.projectPolys(coor.transZ(wallHeight.B))(polysO[2]) or {}),
+                            slot = station.projectPolys(coor.I())(polysP * pipe.flatten())
+                        }
                     }
-                    or
-                    {
-                        less = station.projectPolys(coor.transZ(wallHeight.A > 0 and wallHeight.A or 0))(polys[1])
-                        + station.projectPolys(coor.transZ(wallHeight.B > 0 and wallHeight.B or 0))(polys[2]),
-                        platform = station.projectPolys(coor.I())(polys * pipe.flatten()),
-                        slot = station.projectPolys(coor.I())(polysP * pipe.flatten())
-                    }
+                    )[params.terrain + 1]
                 )({less = 1.5})
                 ,
                 groundFaces = polys
