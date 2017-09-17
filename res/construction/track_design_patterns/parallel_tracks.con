@@ -270,8 +270,8 @@ local updateFn = function()
             * pipe.map(pipe.map(junction.generateArc))
             * pipe.map(pipe.map(pipe.range(1, 2)))
             * pipe.map(pipe.map2(zsList, function(a, zs) return func.map2(a, zs, function(ar, nz) return func.map2(ar, nz, coor.apply) end) end))
-            * pipe.map(function(segs) return pipe.new
-                * func.map2(segs, func.seq(1, #segs), function(e, i) return {
+            * pipe.map(function(segs) return pipe.new * segs
+                * pipe.mapi(function(e, i) return {
                     edge = pipe.new * e,
                     snap = pipe.new / {i == 1, false} / {false, i == #segs}
                 } end)
