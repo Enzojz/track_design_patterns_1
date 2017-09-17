@@ -30,7 +30,7 @@ local wallTransList = {
     function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
-local sizeSwitch = {3.75, 4.5, 6, 7, 9, 12, 18, 24, 30, 36, 42, 50, 65}
+local sizeSwitch = {4.03, 5, 6, 7, 9, 12, 18, 24, 30, 36, 42, 50, 65}
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -50,9 +50,15 @@ local function params()
             defaultIndex = 0
         },
         {
+            key = "compa",
+            name = _("Compactness"),
+            values = {_("Standard"), _("Medium"), _("Compact")},
+            defaultIndex = 0,
+        },
+        {
             key = "cot",
             name = "1/#",
-            values = func.map(sizeSwitch, tostring),
+            values = func.map(func.map(sizeSwitch, math.floor), tostring),
             defaultIndex = 5
         },
         {
@@ -142,11 +148,23 @@ local updateFn = function()
         local offsets = junction.buildCoors(nbTracks, nbTracks)
         
         local rad = atan(1 / sizeSwitch[params.cot + 1])
-        local r = 5 * 0.5 * nbTracks / sin(0.5 * rad) ^ 2
+        local r = 1.435 * 0.5 / sin(0.5 * rad) ^ 2 + 2.5 * (nbTracks - 1)
         
         local radious = {
-            l = params.type == 2 and -junction.infi or -r,
+            l = params.type == 2 and junction.infi or r,
             r = params.type == 0 and junction.infi or r
+        }
+        
+        local compactness = ({0, -1.25, -1.625})[params.compa + 1]
+        
+        local guidelines = {
+            l = arc.byOR(coor.xy(-radious.l, 0), radious.l),
+            r = arc.byOR(coor.xy(radious.r, 0), radious.r)
+        }
+
+        local limArc = {
+            l = guidelines.l + 2.5 * nbTracks + compactness,
+            r = guidelines.r + 2.5 * nbTracks + compactness,
         }
         
         local initRad = {
@@ -155,8 +173,8 @@ local updateFn = function()
         }
         
         local finalRad = {
-            l = params.type == 2 and r * rad / junction.infi or rad,
-            r = pi - (params.type == 0 and r * rad / junction.infi or rad)
+            l = limArc.l:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1]),
+            r = limArc.r:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1])
         }
         
         local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1)
@@ -165,26 +183,35 @@ local updateFn = function()
         
         local arcs = offsets.tracks
             * pipe.map(function(o) return {
-                l = arc.byOR(coor.xy(radious.l, 0), -radious.l + o),
-                r = arc.byOR(coor.xy(radious.r, 0), radious.r - o)
+                l = guidelines.l + o,
+                r = guidelines.r + (-o),
+                c = arc.byOR(coor.xy(-junction.infi, 0), junction.infi + o),
             } end
             )
             * function(g)
-                local l = g * pipe.map(pipe.select("l")) * pipe.zip(func.seq(1, #g), {"g", "i"})
-                local r = g * pipe.map(pipe.select("r")) * pipe.zip(func.seq(1, #g), {"g", "i"})
+                local l = g * pipe.map(pipe.select("l"))
+                local r = g * pipe.map(pipe.select("r"))
                 return
                     {
+                        c = g * pipe.map(pipe.select("c"))
+                        * pipe.map(function(x) return x:withLimits({
+                            sup = radc,
+                            mid = 0,
+                            inf = -radc
+                        }
+                        )
+                        end),
                         l = l
-                        * pipe.map(function(x)
-                            local rads = r * pipe.range(1, x.i - 1)
-                                * pipe.map(function(y) return pipe.new * (x.g - y.g) end)
+                        * pipe.mapi(function(g, i)
+                            local rads = r * pipe.range(1, i - 1)
+                                * pipe.map(function(y) return pipe.new * (g - y) end)
                                 * pipe.map(pipe.filter(function(pt) return pt.y > 0 end))
                                 * pipe.flatten()
                                 * pipe.rev()
-                                * pipe.map(function(p) return x.g:rad(p) end)
+                                * pipe.map(function(p) return g:rad(p) end)
                             return (pipe.new + {initRad.l} + rads)
                                 * pipe.map2(rads / finalRad.l, function(l, r)
-                                    return x.g:withLimits({
+                                    return g:withLimits({
                                         sup = r,
                                         mid = l,
                                         inf = initRad.l - radc
@@ -192,15 +219,15 @@ local updateFn = function()
                                 end)
                         end),
                         r = r
-                        * pipe.map(function(x)
-                            local rads = l * pipe.range(x.i + 1, #l)
-                                * pipe.map(function(y) return pipe.new * (x.g - y.g) end)
+                        * pipe.mapi(function(g, i)
+                            local rads = l * pipe.range(i + 1, #l)
+                                * pipe.map(function(y) return pipe.new * (g - y) end)
                                 * pipe.map(pipe.filter(function(pt) return pt.y > 0 end))
                                 * pipe.flatten()
-                                * pipe.map(function(p) return x.g:rad(p) end)
+                                * pipe.map(function(p) return g:rad(p) end)
                             return (pipe.new + {initRad.r} + rads)
                                 * pipe.map2(rads / finalRad.r, function(l, r)
-                                    return x.g:withLimits({
+                                    return g:withLimits({
                                         sup = r,
                                         mid = l,
                                         inf = initRad.r + radc
@@ -221,76 +248,68 @@ local updateFn = function()
                             }
                         end)
                     end)
-                return (larc + rarc) * pipe.flatten()
+                local carc = g.c * pipe.map(junction.generateArc) * pipe.map(pipe.select(1))
+                return (larc + rarc)
+                    * pipe.map(function(a) return {
+                        edge = pipe.new * a,
+                        snap = pipe.new * func.seq(1, #a - 1) * pipe.map(function(_) return {false, false} end) / {false, true}
+                    } end)
+                    / {
+                        edge = carc,
+                        snap = carc * pipe.map(function(_) return {true, false} end)
+                    }
             end
-            * pipe.map(function(a)
-                return {
-                    edge = pipe.new / a,
-                    snap = pipe.new / {false, false}
-                }
-            end)
-            * dump.dump
             * station.mergeEdges
         
-        
-        
-        
-        --     local c, n = table.unpack(func.range(junction.generateArc(fn), 1, 2))
-        --     local re = junction.generateArc(fr)[2]
-        --     re[1] = c[2]
-        --     re[3] = c[4]
-        --     return {
-        --         {
-        --             edge = pipe.new / c,
-        --             snap = pipe.new / {true, false}
-        --         },
-        --         {
-        --             edge = pipe.new / n,
-        --             snap = pipe.new / {false, true}
-        --         },
-        --         {
-        --             edge = pipe.new / re,
-        --             snap = pipe.new / {false, true}
-        --         }
-        --     }
-        -- end
-        -- )
-        -- * pipe.flatten()
-        -- * station.mergeEdges
         -- local wallHeight = {
         --     A = func.seq(-1, 15)[params.wallAHeight + 1],
         --     B = func.seq(-1, 15)[params.wallBHeight + 1]
         -- }
+        
         -- local vfz = function(h, va)
         --     local var = h < 0 and 0 or
         --         va + h > 15 and 15 - h or
         --         va + h < 0 and -h or va
+            
         --     local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, var))
         --     return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (-ln.a / ln.b) / length * dRad} end
         -- end
+        
         -- local wallGuidelines = offsets.walls
         --     * (radius < 0 and pipe.noop() or pipe.rev())
-        --     * pipe.map(function(o)
-        --         return func.with(guideline + o + params.wallOffset * 0.5 * (o > 0 and 1 or -1), {offset = o})
-        --     end)
+        --     * pipe.map(function(o) return guideline + o + params.wallOffset * 0.5 * (o > 0 and 1 or -1) end)
+        
         -- local restrictedWallGuidelines = offsets.walls
         --     * (radius < 0 and pipe.noop() or pipe.rev())
+        --     * pipe.map(function(o) return guideline + o + (params.wallOffset * 0.5 - 1) * (o > 0 and 1 or -1) end)
+        
+        -- local wallLimitGuidelines = offsets.walls
+        --     * (radius < 0 and pipe.noop() or pipe.rev())
         --     * pipe.map(function(o)
-        --         return pipe.new
-        --             * func.seq(0.25, params.wallOffset * 0.25)
-        --             * pipe.map(function(ro) return ro * 2 * (o > 0 and 1 or -1) end)
-        --             * pipe.map(function(ro) return guideline + o + ro end)
+        --         return {
+        --             guideline + o + params.wallOffset * 2.5 * (o > 0 and 1 or -1),
+        --             guideline + o + params.wallOffset * 10 * (o > 0 and 1 or -1)
+        --         }
         --     end)
+        
         -- local polys = pipe.new
         --     / {g = {wallGuidelines[1], guideline}, o = wallHeight.A < 0 and -1 or 1}
         --     / {g = {guideline, wallGuidelines[2]}, o = wallHeight.B < 0 and -1 or 1}
         --     * pipe.map(function(g) return junction.generatePolyArc(g.g, "inf", "sup")(-0.2, g.o) end)
         --     * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
+        
         -- local polysP = pipe.new
         --     / {wallGuidelines[1], guideline}
         --     / {guideline, wallGuidelines[2]}
         --     * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
         --     * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
+        
+        -- local polysO = pipe.new
+        --     / wallLimitGuidelines[1]
+        --     / wallLimitGuidelines[2]
+        --     * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
+        --     * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
+        
         -- local function mPlace(vfz)
         --     return function(guideline, rad1, rad2)
         --         local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
@@ -300,25 +319,31 @@ local updateFn = function()
         --         return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
         --     end
         -- end
+        
         -- local retriveWall = {
         --     A = function(ls) return ls[params.wallAType + 1] end,
         --     B = function(ls) return params.wallBType == 0 and ls[params.wallAType + 1] or ls[params.wallBType] end
         -- }
+        
         -- local makeWallA = junction.makeFn(
         --     retriveWall.A(wallList),
         --     mPlace(vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1])),
         --     retriveWall.A(wallTransList)(wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()),
         --     retriveWall.A(wallLengthList))
+        
         -- local makeWallB = junction.makeFn(
         --     retriveWall.B(wallList),
         --     mPlace(vfz(wallHeight.B, func.seq(-12, 12)[params.wallBVar + 1])),
         --     retriveWall.B(wallTransList)(wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()),
         --     retriveWall.B(wallLengthList))
+        
         -- local walls = pipe.new
         --     + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
         --     + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten()}
-        --     + (wallHeight.A < 0 and restrictedWallGuidelines[1] * pipe.map(makeWallA) * pipe.map(pipe.flatten()) or {})
-        --     + (wallHeight.B < 0 and restrictedWallGuidelines[2] * pipe.map(makeWallB) * pipe.map(pipe.flatten()) or {})
+        --     + {wallHeight.A < 0 and pipe.new * restrictedWallGuidelines[1] * makeWallA * pipe.flatten() or {}}
+        --     + {wallHeight.B < 0 and pipe.new * restrictedWallGuidelines[2] * makeWallB * pipe.flatten() or {}}
+        
+
         return
             pipe.new
             * {
