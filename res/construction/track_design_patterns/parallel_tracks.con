@@ -160,7 +160,7 @@ local function params()
         },
         {
             key = "wallOffset",
-            name = sp .. "\n" .. "Wall-Track distance",
+            name = sp .. "\n" .. _("Wall-Track distance"),
             values = func.seqMap({0, 8}, function(n) return tostring(n * 0.5) end),
             defaultIndex = 1
         },

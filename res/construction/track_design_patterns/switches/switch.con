@@ -14,8 +14,26 @@ local atan = math.atan
 local cos = math.cos
 local sin = math.sin
 
+local generateArc = function(fz)
+    return function(arc)
+        local toXyz = function(pt, z) return coor.xyz(pt.x, pt.y, z) end
+        
+        local sup = toXyz(arc:pt(arc.sup), fz(arc.sup).z)
+        local inf = toXyz(arc:pt(arc.inf), fz(arc.inf).z)
+        local mid = toXyz(arc:pt(arc.mid), fz(arc.mid).z)
+        
+        local vecSup = func.with(arc:tangent(arc.sup), {z = fz(arc.sup).s})
+        local vecInf = func.with(arc:tangent(arc.inf), {z = fz(arc.inf).s})
+        local vecMid = func.with(arc:tangent(arc.mid), {z = fz(arc.mid).s})
+        
+        return {
+            {inf, mid, vecInf, vecMid},
+            {mid, sup, vecMid, vecSup}
+        }
+    end
+end
+
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
-local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local wallList = {
     "track_design_patterns/concrete_wall.mdl",
     "track_design_patterns/brick_wall.mdl",
@@ -159,7 +177,7 @@ local updateFn = function()
         
         local guidelines = {
             l = arc.byOR(coor.xy(-radious.l, 0), radious.l),
-            r = arc.byOR(coor.xy(radious.r, 0), radious.r)
+            r = arc.byOR(coor.xy(radious.r, 0), radious.r),
         }
         
         local limArc = {
@@ -177,6 +195,8 @@ local updateFn = function()
             r = limArc.r:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1])
         }
         
+        local radc = 5 / junction.infi
+        
         guidelines = {
             l = guidelines.l:withLimits({
                 sup = finalRad.l,
@@ -187,18 +207,28 @@ local updateFn = function()
                 sup = finalRad.r,
                 mid = initRad.r,
                 inf = -finalRad.r
+            }),
+            c = arc.byOR(coor.xy(-junction.infi, 0), junction.infi):withLimits({
+                sup = radc,
+                mid = 0,
+                inf = -radc
             })
         }
         
-        local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1)
+        local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1) * 0.001
         
-        local radc = 2.5 / junction.infi
+        local fz = {
+            l = function(rad) return {z = guidelines.l:pt(rad).y * slope, s = slope} end,
+            r = function(rad) return {z = guidelines.r:pt(rad).y * slope, s = slope} end,
+            c = function(rad) return {z = guidelines.c:pt(rad).y * slope, s = slope} end,
+        }
+        
         
         local arcs = offsets.tracks
             * pipe.map(function(o) return {
                 l = guidelines.l + o,
                 r = guidelines.r + (-o),
-                c = arc.byOR(coor.xy(-junction.infi, 0), junction.infi + o),
+                c = guidelines.c + o
             } end
             )
             * function(g)
@@ -206,14 +236,7 @@ local updateFn = function()
                 local r = g * pipe.map(pipe.select("r"))
                 return
                     {
-                        c = g * pipe.map(pipe.select("c"))
-                        * pipe.map(function(x) return x:withLimits({
-                            sup = radc,
-                            mid = 0,
-                            inf = -radc
-                        }
-                        )
-                        end),
+                        c = g * pipe.map(pipe.select("c")),
                         l = l
                         * pipe.mapi(function(g, i)
                             local rads = r * pipe.range(1, i - 1)
@@ -250,8 +273,8 @@ local updateFn = function()
                     }
             end
             * function(g)
-                local larc = g.l * pipe.map(pipe.map(junction.generateArc)) * pipe.map(pipe.map(pipe.select(2)))
-                local rarc = g.r * pipe.map(pipe.map(junction.generateArc)) * pipe.map(pipe.map(pipe.select(2)))
+                local larc = g.l * pipe.map(pipe.map(generateArc(fz.l))) * pipe.map(pipe.map(pipe.select(2)))
+                local rarc = g.r * pipe.map(pipe.map(generateArc(fz.r))) * pipe.map(pipe.map(pipe.select(2)))
                     * pipe.mapi(function(g, i)
                         return pipe.new * g * pipe.mapi(function(a, j)
                             return {
@@ -261,7 +284,7 @@ local updateFn = function()
                             }
                         end)
                     end)
-                local carc = g.c * pipe.map(junction.generateArc) * pipe.map(pipe.select(1))
+                local carc = g.c * pipe.map(generateArc(fz.c)) * pipe.map(pipe.select(1))
                 return (larc + rarc)
                     * pipe.map(function(a) return {
                         edge = pipe.new * a,
@@ -274,17 +297,7 @@ local updateFn = function()
             end
             * station.mergeEdges
         
-        -- local wallHeight = {
-        --     A = func.seq(-1, 15)[params.wallAHeight + 1],
-        --     B = func.seq(-1, 15)[params.wallBHeight + 1]
-        -- }
-        -- local vfz = function(h, va)
-        --     local var = h < 0 and 0 or
-        --         va + h > 15 and 15 - h or
-        --         va + h < 0 and -h or va
-        --     local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, var))
-        --     return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (-ln.a / ln.b) / length * dRad} end
-        -- end
+        
         local wallHeight = {
             A = func.seq(-1, 15)[params.wallAHeight + 1],
             B = func.seq(-1, 15)[params.wallBHeight + 1]
@@ -292,9 +305,13 @@ local updateFn = function()
         
         local wallGuidelines = offsets.walls *
             pipe.map2({guidelines.l, guidelines.r}, function(o, g) return g + (-abs(o) + params.wallOffset * 0.5) end)
+            / (guidelines.c + (-abs(offsets.walls[1] + params.wallOffset * 0.5)))
+            / (guidelines.c + (abs(offsets.walls[2] - params.wallOffset * 0.5)))
         
         local restrictedWallGuidelines = offsets.walls
             * pipe.map2({guidelines.l, guidelines.r}, function(o, g) return g + (-abs(o) + params.wallOffset * 0.5 - 1) end)
+            / (guidelines.c + (-abs(offsets.walls[1] + params.wallOffset * 0.5 - 1)))
+            / (guidelines.c + (abs(offsets.walls[2] - params.wallOffset * 0.5 + 1)))
         
         local wallLimitGuidelines = offsets.walls
             * pipe.map2({guidelines.l, guidelines.r}, function(o, g) return
@@ -303,50 +320,109 @@ local updateFn = function()
                     g + (-abs(o) + params.wallOffset * 10)
                 }
             end)
+            / {
+            (guidelines.c + (-abs(offsets.walls[1] + params.wallOffset * 2.5))),
+                (guidelines.c + (-abs(offsets.walls[1] + params.wallOffset * 10))),
+            }
+            / {
+            (guidelines.c + (abs(offsets.walls[2] - params.wallOffset * 2.5))),
+                (guidelines.c + (abs(offsets.walls[2] - params.wallOffset * 10))),
+            }
         
         local polys = pipe.new
             / {g = {wallGuidelines[1], guidelines.l}, o = wallHeight.A < 0 and -1 or 1}
             / {g = {guidelines.r, wallGuidelines[2]}, o = wallHeight.B < 0 and -1 or 1}
             * pipe.map(function(g) return junction.generatePolyArc(g.g, "mid", "sup")(-0.2, g.o) end)
-        -- * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)))
+            +
+            pipe.new
+            / {g = {wallGuidelines[3], guidelines.c}, o = wallHeight.A < 0 and -1 or 1}
+            / {g = {guidelines.c, wallGuidelines[4]}, o = wallHeight.B < 0 and -1 or 1}
+            * pipe.map(function(g) return junction.generatePolyArc(g.g, "inf", "mid")(-0.2, g.o) end)
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)))
+        
         local polysP = pipe.new
             / {wallGuidelines[1], guidelines.l}
             / {guidelines.r, wallGuidelines[2]}
             * pipe.map(function(g) return junction.generatePolyArc(g, "mid", "sup")(-0.2, 1) end)
-        -- -- * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)))
+            +
+            pipe.new
+            / {wallGuidelines[3], guidelines.c}
+            / {guidelines.c, wallGuidelines[4]}
+            * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "mid")(-0.2, 1) end)
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)))
+        
         local polysO = pipe.new
             / wallLimitGuidelines[1]
             / wallLimitGuidelines[2]
             * pipe.map(function(g) return junction.generatePolyArc(g, "mid", "sup")(-0.2, 1) end)
-        -- * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
-        -- local function mPlace(vfz)
-        --     return function(guideline, rad1, rad2)
-        --         local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
-        --         local z = fz(rad).z + vfz(rad).z
-        --         local s = -fz(rad).s - vfz(rad).s
-        --         local pt = guideline:pt(rad)
-        --         return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
-        --     end
-        -- end
-        -- local retriveWall = {
-        --     A = function(ls) return ls[params.wallAType + 1] end,
-        --     B = function(ls) return params.wallBType == 0 and ls[params.wallAType + 1] or ls[params.wallBType] end
-        -- }
-        -- local makeWallA = junction.makeFn(
-        --     retriveWall.A(wallList),
-        --     mPlace(vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1])),
-        --     retriveWall.A(wallTransList)(wallHeight.A) * (params.sign == 0 and coor.flipX() or coor.I()) * (wallHeight.A < 1 and coor.flipX() or coor.I()),
-        --     retriveWall.A(wallLengthList))
-        -- local makeWallB = junction.makeFn(
-        --     retriveWall.B(wallList),
-        --     mPlace(vfz(wallHeight.B, func.seq(-12, 12)[params.wallBVar + 1])),
-        --     retriveWall.B(wallTransList)(wallHeight.B) * (params.sign == 0 and coor.I() or coor.flipX()) * (wallHeight.B < 1 and coor.flipX() or coor.I()),
-        --     retriveWall.B(wallLengthList))
-        -- local walls = pipe.new
-        --     + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
-        --     + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten()}
-        --     + {wallHeight.A < 0 and pipe.new * restrictedWallGuidelines[1] * makeWallA * pipe.flatten() or {}}
-        --     + {wallHeight.B < 0 and pipe.new * restrictedWallGuidelines[2] * makeWallB * pipe.flatten() or {}}
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)))
+            +
+            pipe.new
+            / wallLimitGuidelines[3]
+            / wallLimitGuidelines[4]
+            * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "mid")(-0.2, 1) end)
+            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)))
+        
+        local vfz = function(h, va)
+            return nil
+        -- local var = h < 0 and 0 or
+        --     va + h > 15 and 15 - h or
+        --     va + h < 0 and -h or va
+        -- local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, var))
+        -- return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (-ln.a / ln.b) / length * dRad} end
+        end
+        
+        local function mPlace(fz, vfz)
+            return function(guideline, rad1, rad2)
+                local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
+                local z = fz(rad).z
+                local s = -fz(rad).s
+                local pt = guideline:pt(rad)
+                return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+            end
+        end
+        
+        local retriveWall = {
+            A = function(ls) return ls[params.wallAType + 1] end,
+            B = function(ls) return params.wallBType == 0 and ls[params.wallAType + 1] or ls[params.wallBType] end
+        }
+        
+        local makeWallA = function(fz)
+            return junction.makeFn(
+                retriveWall.A(wallList),
+                mPlace(fz, vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1])),
+                retriveWall.A(wallTransList)(wallHeight.A) * (wallHeight.A < 1 and coor.flipX() or coor.I()),
+                retriveWall.A(wallLengthList))
+        end
+        
+        local makeWallB = function(fz)
+            return junction.makeFn(
+                retriveWall.B(wallList),
+                mPlace(fz, vfz(wallHeight.B, func.seq(-12, 12)[params.wallBVar + 1])),
+                retriveWall.B(wallTransList)(wallHeight.B) * (wallHeight.B < 1 and coor.flipX() or coor.I()),
+                retriveWall.B(wallLengthList))
+        end
+        
+        local makeWallBc = function(fz)
+            return junction.makeFn(
+                retriveWall.B(wallList),
+                mPlace(fz, vfz(wallHeight.B, func.seq(-12, 12)[params.wallBVar + 1])),
+                retriveWall.B(wallTransList)(wallHeight.B) * coor.flipX() * (wallHeight.B < 1 and coor.flipX() or coor.I()),
+                retriveWall.B(wallLengthList))
+        end
+        
+        local walls = pipe.new
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz.l) * pipe.select(2)}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz.r) * pipe.select(2)}
+            + {wallHeight.A < 0 and pipe.new * restrictedWallGuidelines[1] * makeWallA(fz.l) * pipe.select(2) or {}}
+            + {wallHeight.B < 0 and pipe.new * restrictedWallGuidelines[2] * makeWallB(fz.r) * pipe.select(2) or {}}
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[3] * makeWallA(fz.c) * pipe.select(1)}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[4] * makeWallBc(fz.c) * pipe.select(1)}
+            + {wallHeight.A < 0 and pipe.new * restrictedWallGuidelines[3] * makeWallA(fz.c) * pipe.select(1) or {}}
+            + {wallHeight.B < 0 and pipe.new * restrictedWallGuidelines[4] * makeWallBc(fz.c) * pipe.select(1) or {}}
+        
         return
             pipe.new
             * {
@@ -379,9 +455,8 @@ local updateFn = function()
                     }
                     )[params.terrain + 1]
                 )({less = 1.5}),
-                models = {}
+                models = walls * pipe.flatten(),
             }
-            * station.setSlope(slope)
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
 end
