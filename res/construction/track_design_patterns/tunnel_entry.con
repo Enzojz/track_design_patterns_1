@@ -1,11 +1,11 @@
 local paramsutil = require "paramsutil"
-local func = require "flyingjunction/func"
-local coor = require "flyingjunction/coor"
-local trackEdge = require "flyingjunction/trackedge"
-local line = require "flyingjunction/coorline"
-local arc = require "flyingjunction/coorarc"
-local station = require "flyingjunction/stationlib"
-local pipe = require "flyingjunction/pipe"
+local func = require "track_design_patterns/func"
+local coor = require "track_design_patterns/coor"
+local trackEdge = require "track_design_patterns/trackedge"
+local line = require "track_design_patterns/coorline"
+local arc = require "track_design_patterns/coorarc"
+local station = require "track_design_patterns/stationlib"
+local pipe = require "track_design_patterns/pipe"
 local junction = require "junction"
 
 local pi = math.pi
@@ -30,6 +30,18 @@ local function params()
             name = _("Number of tracks"),
             values = {_("1"), _("2"), _("3"), _("4"), _("5"), _("6"), },
             defaultIndex = 1
+        },
+        {
+            key = "slopeSign",
+            name = sp,
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "slope",
+            name = _("Slope") .. "(‰)",
+            values = func.map(slopeList, tostring),
+            defaultIndex = math.floor(#slopeList * 0.5)
         },
         {
             key = "signS",
@@ -62,16 +74,10 @@ local function params()
             defaultIndex = 0
         },
         {
-            key = "slopeSign",
-            name = sp,
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "slope",
-            name = _("Slope") .. "(‰)",
-            values = func.map(slopeList, tostring),
-            defaultIndex = math.floor(#slopeList * 0.5)
+            key = "lengthU",
+            name = _("Length") .. "(%)",
+            values = func.map(func.seq(3, 10), function(r) return tostring(r * 10) end),
+            defaultIndex = 7
         },
         {
             key = "paraTracks",
@@ -118,7 +124,10 @@ local updateFn = function(models)
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local height = 8.5
         
-        local pctLength = (params.lengthS + 3) * 0.1
+        local pctLength = {
+            surface = (params.lengthS + 3) * 0.1,
+            underground = (params.lengthU + 3) * 0.1
+        }
         
         local nbTracks = params.nbTracks + 1
         local slope = (params.slopeSign == 0 and 1 or -1) * slopeList[params.slope + 1] * 0.001
@@ -137,8 +146,8 @@ local updateFn = function(models)
         }
         
         local radFinal = {
-            surface = length / radius.surface * pctLength,
-            underground = length / radius.underground
+            surface = length / radius.surface * pctLength.surface,
+            underground = length / radius.underground * pctLength.underground
         }
         
         local limits = {
@@ -174,11 +183,11 @@ local updateFn = function(models)
         
         local fz = {
             surface = pipe.exec * function()
-                local ln = line.byPtPt(coor.xy(radInit.surface, -height), coor.xy(radInit.surface + radFinal.surface, -height + height * pctLength))
+                local ln = line.byPtPt(coor.xy(radInit.surface, -height), coor.xy(radInit.surface + radFinal.surface, height * (- 1 + pctLength.surface)))
                 return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = -slope} end
             end,
             underground = pipe.exec * function()
-                local ln = line.byPtPt(coor.xy(radInit.underground, -height), coor.xy(radInit.underground - radFinal.underground, -2 * height))
+                local ln = line.byPtPt(coor.xy(radInit.underground, -height), coor.xy(radInit.underground - radFinal.underground, (-1 - pctLength.underground) * height))
                 return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = -slope} end
             end
         }
@@ -232,10 +241,10 @@ local updateFn = function(models)
         })
         
         local wallGuidelines = offsets.walls
-            * pipe.map(function(o) return guideline.surface:extendLimits(0.5) + (o) * (radius.surface > 0 and -1 or 1) end)
+            * pipe.map(function(o) return guideline.surface + (o) * (radius.surface > 0 and -1 or 1) end)
         
         local polys = junction.generatePolyArc(wallGuidelines, "inf", "sup")(0, 2)
-        local polysTracks = junction.generatePolyArc(wallGuidelines, "mid", "sup")(0.5, 1)
+        local polysTracks = junction.generatePolyArc(wallGuidelines, "mid", "sup")(1, 1)
             * pipe.map(pipe.map(function(p) return coor.transZ(fz.surface(p.rad).z - 0.01)(p) end))
         
         local mPlace = function(guideline, rad1, rad2)
@@ -263,14 +272,16 @@ local updateFn = function(models)
             + {pipe.new * wallGuidelines[2] * makeWallR * pipe.flatten()}
             + func.map(offsets.tracks, function(o) return
                 {
-                    station.newModel(models.mRoofFenceF, coor.scaleY(2), coor.trans({x = o, z = -11.5, y = 0})),
-                    station.newModel(models.mRoof, coor.scaleY(0.8), coor.trans({x = o, z = -11 + 0.0001, y = 2}), coor.scaleZ(0.5))
+                    station.newModel(models.mRoofFenceF, coor.scaleY(2), coor.trans({x = o, z = -11.5, y = -0.5})),
+                    station.newModel(models.mRoof, coor.scaleX(1.1), coor.scaleY(0.8), coor.trans({x = o, z = -11 + 0.0001, y = 2}), coor.scaleZ(0.5))
                 }
             end)
             + {
                 {
-                    station.newModel(models.mRoof, coor.scaleY(0.8), coor.trans({x = offsets.tracks[1] - 1.25, z = -11 + 0.0001, y = 2}), coor.scaleZ(0.5)),
-                    station.newModel(models.mRoof, coor.scaleY(0.8), coor.trans({x = offsets.tracks[#offsets.tracks] + 1.25, z = -11 + 0.0001, y = 2}), coor.scaleZ(0.5)),
+                    station.newModel("track_design_patterns/sand_wall.mdl", coor.scaleX(2), coor.scaleY(0.8),
+                        coor.trans({x = offsets.tracks[1] - 3.25, y = 2, z = -10 + 0.0001})),
+                    station.newModel("track_design_patterns/sand_wall.mdl", coor.scaleX(2), coor.scaleY(0.8),
+                        coor.trans({x = offsets.tracks[#offsets.tracks] + 3.25, y = 2, z = -10 + 0.0001})),
                 }
             }
         
@@ -321,7 +332,7 @@ end
 
 function data()
     return {
-        type = "ASSET_DEFAULT",
+        type = "RAIL_DEPOT",
         description = {
             name = _("Compact Tunnel entry"),
             description = _("A compact tunnel entry")
@@ -329,8 +340,6 @@ function data()
         availability = {
             yearFrom = 1892
         },
-        buildMode = "SINGLE",
-        categories = {"misc"},
         order = 27218,
         skipCollision = false,
         autoRemovable = false,

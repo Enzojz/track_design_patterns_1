@@ -1,13 +1,13 @@
 local paramsutil = require "paramsutil"
-local func = require "flyingjunction/func"
-local coor = require "flyingjunction/coor"
-local line = require "flyingjunction/coorline"
-local arc = require "flyingjunction/coorarc"
-local trackEdge = require "flyingjunction/trackedge"
-local station = require "flyingjunction/stationlib"
-local pipe = require "flyingjunction/pipe"
+local func = require "track_design_patterns/func"
+local coor = require "track_design_patterns/coor"
+local line = require "track_design_patterns/coorline"
+local arc = require "track_design_patterns/coorarc"
+local trackEdge = require "track_design_patterns/trackedge"
+local station = require "track_design_patterns/stationlib"
+local pipe = require "track_design_patterns/pipe"
 local junction = require "junction"
-
+local dump = require "datadumper"
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
@@ -165,9 +165,9 @@ local function params()
             defaultIndex = 1
         },
         {
-            key = "terrain",
-            name = _("Terrain Alignment"),
-            values = {_("Normal"), _("Sharp"), _("Complet")},
+            key = "edgeType",
+            name = _("Track carrier"),
+            values = {_("Normal"), _("Hidden Bridge")},
             defaultIndex = 0
         },
         {
@@ -309,6 +309,61 @@ local updateFn = function()
             return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (-ln.a / ln.b) / length * dRad} end
         end
         
+        local terrainGuidelines = offsets.walls
+            * (radius < 0 and pipe.noop() or pipe.rev())
+            * pipe.map(function(o)
+                local ref = guideline + o
+                local extra = function(w) return ref + (o > 0 and w or -w) end
+                return
+                    {
+                        ref = ref,
+                        outer = extra(params.wallOffset * 0.5 + 1),
+                        inner = extra(params.wallOffset * 0.5 - 1)
+                    }
+            end)
+        
+        local p = function(wallHeight, refHeight, guidelines)
+            local f = function(s) return s.g and
+                junction.generatePolyArc({s.g, guideline}, "inf", "sup")(-0.2, 0)
+                * pipe.map(pipe.map(s.fz))
+                * station.projectPolys(coor.I())
+                or {}
+            end
+            local polyGen = function(l, e, g)
+                local p = {f(l), f(e), f(g)}
+                return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
+            end
+            
+            return {
+                slot = polyGen(
+                    {},
+                    {},
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end}
+                ),
+                equal = polyGen(
+                    {},
+                    refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
+                    {}
+                ),
+                less = polyGen(
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
+                    refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight)(p) end}
+                ),
+                greater = polyGen(
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - 15)(p) end},
+                    refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
+                    refHeight > 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {}
+            )
+            }
+        end
+        
+        
+        local polys = station.mergePoly(
+            p(wallHeight.A, wallHeight.B, terrainGuidelines[1]),
+            p(wallHeight.B, wallHeight.A, terrainGuidelines[2])
+        )({less = 1.5})
+        
         local wallGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o) return guideline + o + params.wallOffset * 0.5 * (o > 0 and 1 or -1) end)
@@ -317,32 +372,6 @@ local updateFn = function()
             * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o) return guideline + o + (params.wallOffset * 0.5 - 1) * (o > 0 and 1 or -1) end)
         
-        local wallLimitGuidelines = offsets.walls
-            * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o)
-                return {
-                    guideline + o + params.wallOffset * 2.5 * (o > 0 and 1 or -1),
-                    guideline + o + params.wallOffset * 10 * (o > 0 and 1 or -1)
-                }
-            end)
-        
-        local polys = pipe.new
-            / {g = {wallGuidelines[1], guideline}, o = wallHeight.A < 0 and -1 or 1}
-            / {g = {guideline, wallGuidelines[2]}, o = wallHeight.B < 0 and -1 or 1}
-            * pipe.map(function(g) return junction.generatePolyArc(g.g, "inf", "sup")(-0.2, g.o) end)
-            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
-        
-        local polysP = pipe.new
-            / {wallGuidelines[1], guideline}
-            / {guideline, wallGuidelines[2]}
-            * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
-            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
-        
-        local polysO = pipe.new
-            / wallLimitGuidelines[1]
-            / wallLimitGuidelines[2]
-            * pipe.map(function(g) return junction.generatePolyArc(g, "inf", "sup")(-0.2, 1) end)
-            * pipe.map(pipe.map(pipe.map(function(p) return coor.transZ(fz(p.rad).z)(p) end)))
         
         local function mPlace(vfz)
             return function(guideline, rad1, rad2)
@@ -377,12 +406,15 @@ local updateFn = function()
             + {wallHeight.A < 0 and pipe.new * restrictedWallGuidelines[1] * makeWallA * pipe.flatten() or {}}
             + {wallHeight.B < 0 and pipe.new * restrictedWallGuidelines[2] * makeWallB * pipe.flatten() or {}}
         
+        local edgeBuilder = 
+        params.edgeType == 0 and trackBuilder.nonAligned() or trackBuilder.bridge("void_bridge.lua")
+
         return
             pipe.new
             * {
                 edgeLists =
                 {
-                    pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * trackBuilder.nonAligned(),
+                    pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * edgeBuilder,
                 },
                 edgeObjects = pipe.new
                 * func.seqMap({0, nbTracks - 1}, function(n) return
@@ -401,40 +433,7 @@ local updateFn = function()
                 * pipe.flatten()
                 * pipe.flatten(),
                 models = walls * pipe.flatten(),
-                terrainAlignmentLists = station.mergePoly(
-                    (
-                    {
-                        {
-                            equal = station.projectPolys(coor.I())(polys * pipe.flatten())
-                        },
-                        {
-                            less =
-                            station.projectPolys(coor.transZ(wallHeight.A > 0 and wallHeight.A or 0))(polys[1])
-                            + station.projectPolys(coor.transZ(wallHeight.B > 0 and wallHeight.B or 0))(polys[2]),
-                            platform = station.projectPolys(coor.I())(polys * pipe.flatten()),
-                            slot = station.projectPolys(coor.I())(polysP * pipe.flatten())
-                        },
-                        {
-                            less =
-                            station.projectPolys(coor.transZ(wallHeight.A > 0 and wallHeight.A or 0))(polys[1])
-                            + station.projectPolys(coor.transZ(wallHeight.B > 0 and wallHeight.B or 0))(polys[2]),
-                            platform = station.projectPolys(coor.I())(polys * pipe.flatten())
-                            + (wallHeight.A > 0 and station.projectPolys(coor.transZ(wallHeight.A))(polysO[1]) or {})
-                            + (wallHeight.B > 0 and station.projectPolys(coor.transZ(wallHeight.B))(polysO[2]) or {}),
-                            slot = station.projectPolys(coor.I())(polysP * pipe.flatten())
-                        }
-                    }
-                    )[params.terrain + 1]
-                )({less = 1.5})
-                ,
-                groundFaces = polys
-                * pipe.flatten()
-                * pipe.mapFlatten(function(p)
-                    return {
-                        {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}},
-                        {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast"}}}
-                    }
-                end)
+                terrainAlignmentLists = polys
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
