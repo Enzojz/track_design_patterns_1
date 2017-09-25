@@ -43,10 +43,10 @@ local wallList = {
 local wallHeightList = {15, 15, 15, 8}
 local wallLengthList = {5, 5, 5, 10}
 local wallTransList = {
-    function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.scaleX(2) * coor.transX(-0.5) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
+    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
 local sizeSwitch = {4.03, 5, 6, 7, 9, 12, 18, 24, 30, 36, 42, 50, 65}
@@ -71,8 +71,8 @@ local function params()
         {
             key = "compa",
             name = _("Compactness"),
-            values = {_("Standard"), _("Medium"), _("Compact")},
-            defaultIndex = 0,
+            values = {_("Extra loose"), _("Loose"), _("Standard"), _("Medium"), _("Compact")},
+            defaultIndex = 2,
         },
         {
             key = "cot",
@@ -123,12 +123,6 @@ local function params()
             defaultIndex = 1
         },
         {
-            key = "terrain",
-            name = _("Terrain Alignment"),
-            values = {_("Normal"), _("Sharp"), _("Complet")},
-            defaultIndex = 0
-        },
-        {
             key = "height",
             name = _("Altitude Adjustment") .. "(m)",
             values = func.seqMap({-10, 15}, tostring),
@@ -163,7 +157,7 @@ local updateFn = function()
             r = params.type == 0 and junction.infi or r
         }
         
-        local compactness = ({0, -1.25, -1.625})[params.compa + 1]
+        local compactness = ({2, 1, 0, -1.25, -1.625})[params.compa + 1]
         
         local guidelines = {
             l = arc.byOR(coor.xy(-radious.l, 0), radious.l),
@@ -298,72 +292,55 @@ local updateFn = function()
             B = params.wallBHeight == 0 and func.seq(-1, 15)[params.wallAHeight + 1] or func.seq(-1, 15)[params.wallBHeight]
         }
         
-        local wallGuidelines = offsets.walls *
-            pipe.map2({guidelines.l, guidelines.r}, function(o, g) return g + (-abs(o) + wallOffset) end)
-            / (guidelines.c + (-abs(offsets.walls[1] + wallOffset)))
-            / (guidelines.c + (abs(offsets.walls[2] - wallOffset)))
+        local wallGuidelines = {
+            (guidelines.l + (-abs(offsets.walls[1] - wallOffset))),
+                (guidelines.r + (-abs(offsets.walls[2] + wallOffset))),
+                (guidelines.c + (-abs(offsets.walls[1] - wallOffset))),
+                (guidelines.c + (abs(offsets.walls[2] + wallOffset)))
+        }
         
-        local restrictedWallGuidelines =
+        local trackPavingGuidelines =
             {
-                guidelines.l + (offsets.tracks[1] - 0.75),
-                guidelines.r + (-offsets.tracks[#offsets.tracks] - 0.75),
-                guidelines.c + (offsets.tracks[1] - 0.75),
-                guidelines.c + (offsets.tracks[#offsets.tracks] + 0.75),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.l + (-d + 0.2455 + offsets.walls[1]) end),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.r + (-d + 0.2455 - offsets.walls[#offsets.walls]) end),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.c + (-d + 0.2455 + offsets.walls[1]) end),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.c + (d - 0.2455 + offsets.walls[#offsets.walls]) end)
             }
         
-        local terrainGuidelines = {
-            l = offsets.walls
-            * pipe.map(function(o)
-                local ref = guidelines.l + o
-                local extra = function(w) return ref + (o > 0 and w or -w) end
-                return
-                    {
-                        ref = ref,
-                        outer = extra(wallOffset + 1),
-                        inner = extra(wallOffset - 1)
-                    }
-            end)
-            * (function(r) return
+        local terrainGuidelines = pipe.exec * function()
+            local sort = function(r) return
                 {
                     ref = func.map(r, pipe.select("ref")),
                     outer = func.map(r, pipe.select("outer")),
                     inner = func.map(r, pipe.select("inner")),
-                } end),
-            r = offsets.walls
-            * pipe.map(function(o)
-                local ref = guidelines.r + (-o)
-                local extra = function(w) return ref + (o < 0 and w or -w) end
-                return
-                    {
-                        ref = ref,
-                        outer = extra(wallOffset + 1),
-                        inner = extra(wallOffset - 1)
-                    }
-            end)
-            * (function(r) return
-                {
-                    ref = func.map(r, pipe.select("ref")),
-                    outer = func.map(r, pipe.select("outer")),
-                    inner = func.map(r, pipe.select("inner")),
-                } end),
-            c = offsets.walls
-            * pipe.map(function(o)
-                local ref = guidelines.c + o
-                local extra = function(w) return ref + (o > 0 and w or -w) end
-                return
-                    {
-                        ref = ref,
-                        outer = extra(wallOffset + 1),
-                        inner = extra(wallOffset - 1)
-                    }
-            end)
-            * (function(r) return
-                {
-                    ref = func.map(r, pipe.select("ref")),
-                    outer = func.map(r, pipe.select("outer")),
-                    inner = func.map(r, pipe.select("inner")),
-                } end)
-        }
+                }
+            end
+            local gen = function(s)
+                return {
+                    ref = s(0),
+                    outer = s(wallOffset + 1),
+                    inner = s(wallOffset - 1)
+                }
+            end
+            return {
+                l = offsets.walls
+                * pipe.map(function(o) local ref = guidelines.l + o return function(w) return ref + (o > 0 and w or -w) end end)
+                * pipe.map(gen)
+                * sort,
+                r = offsets.walls
+                * pipe.map(function(o) local ref = guidelines.r + (-o) return function(w) return ref + (o < 0 and w or -w) end end)
+                * pipe.map(gen)
+                * sort,
+                cl = pipe.new * {offsets.walls[1], 0}
+                * pipe.map(function(o) local ref = guidelines.c + o return function(w) return ref + (o > 0 and w or -w) end end)
+                * pipe.map(gen)
+                * sort,
+                cr = pipe.new * {offsets.walls[2], 0}
+                * pipe.map(function(o) local ref = guidelines.c + o return function(w) return ref + (o > 0 and w or -w) end end)
+                * pipe.map(gen)
+                * sort
+            }
+        end
         
         local polyGen = function(wallHeight, refHeight, guidelines, wHeight, fr, to)
             local f = function(s) return s.g and
@@ -395,19 +372,35 @@ local updateFn = function()
                 greater = polyGen(
                     {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight)(p) end},
                     refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
-                    refHeight ~= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight + wallHeight)(p) end} or {}
-                ),
-                platform = polyGen(
-                    refHeight ~= 0 and {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
-                    {},
-                    refHeight ~= 0 and {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {}
+                    refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end} or
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight + wallHeight)(p) end}
             )
             }
         end
         
+        local pointTerrain = pipe.exec * function()
+            local lp = guidelines.l + offsets.tracks[#offsets.tracks]
+            local rp = guidelines.r + (-offsets.tracks[1])
+            local int = func.max(lp - rp, function(l, r) return l.y < r.y end)
+            local radlp = lp:rad(int)
+            local radrp = rp:rad(int)
+            lp = lp:withLimits({inf = radlp, mid = 0.5 * (radlp + lp.sup), sup = lp.sup})
+            rp = rp:withLimits({inf = radrp, mid = 0.5 * (radrp + rp.sup), sup = rp.sup})
+            
+            return {
+                platform = (junction.generatePolyArc({lp, lp + 2.5 + compactness}, "inf", "sup")(-0.2, 0)
+                + junction.generatePolyArc({rp, rp + 2.5 + compactness}, "inf", "sup")(-0.2, 0))
+                * pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)) * station.projectPolys(coor.I())
+            }
+        
+        end
+        
         local polys = station.mergePoly(
             polyGen(wallHeight.A, wallHeight.B, terrainGuidelines.l, retriveWall.A(wallHeightList), "mid", "sup"),
-            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.r, retriveWall.B(wallHeightList), "mid", "sup")
+            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.r, retriveWall.B(wallHeightList), "mid", "sup"),
+            polyGen(wallHeight.A, wallHeight.B, terrainGuidelines.cl, retriveWall.A(wallHeightList), "inf", "mid"),
+            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.cr, retriveWall.B(wallHeightList), "inf", "mid"),
+            pointTerrain
         )({less = 1.5})
         
         local function mPlace(fz)
@@ -424,7 +417,7 @@ local updateFn = function()
             return junction.makeFn(
                 retriveWall.A(wallList),
                 mPlace(fz),
-                retriveWall.A(wallTransList)(wallHeight.A) * (wallHeight.A < 0 and coor.flipX() or coor.I()),
+                retriveWall.A(wallTransList)(wallHeight.A),
                 retriveWall.A(wallLengthList))
         end
         
@@ -432,7 +425,7 @@ local updateFn = function()
             return junction.makeFn(
                 retriveWall.B(wallList),
                 mPlace(fz),
-                retriveWall.B(wallTransList)(wallHeight.B) * (wallHeight.B > 0 and coor.flipX() or coor.I()),
+                retriveWall.B(wallTransList)(wallHeight.B),
                 retriveWall.B(wallLengthList))
         end
         
@@ -440,7 +433,7 @@ local updateFn = function()
             return junction.makeFn(
                 retriveWall.B(wallList),
                 mPlace(fz),
-                retriveWall.B(wallTransList)(wallHeight.B) * coor.flipX() * (wallHeight.B < 1 and coor.flipX() or coor.I()),
+                retriveWall.B(wallTransList)(wallHeight.B) * coor.flipX(),
                 retriveWall.B(wallLengthList))
         end
         
@@ -449,7 +442,7 @@ local updateFn = function()
             return junction.makeFn(
                 "track_design_patterns/paving_base.mdl",
                 mPlace(fz),
-                coor.transZ(0),
+                coor.transZ(-1e-3),
                 5)
         end
         
@@ -457,13 +450,12 @@ local updateFn = function()
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz.l) * pipe.select(2)}
             + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz.r) * pipe.select(2)}
-            + {wallHeight.A ~= 0 and pipe.new * restrictedWallGuidelines[1] * makePaving(fz.l) * pipe.select(2) or {}}
-            + {wallHeight.B ~= 0 and pipe.new * restrictedWallGuidelines[2] * makePaving(fz.r) * pipe.select(2) or {}}
+            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz.l)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz.r)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
             + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[3] * makeWallA(fz.c) * pipe.select(1)}
             + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[4] * makeWallBc(fz.c) * pipe.select(1)}
-            + {wallHeight.A ~= 0 and pipe.new * restrictedWallGuidelines[3] * makePaving(fz.c) * pipe.select(1) or {}}
-            + {wallHeight.B ~= 0 and pipe.new * restrictedWallGuidelines[4] * makePaving(fz.c) * pipe.select(1) or {}}
-        
+            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[3] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[4] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
         return
             pipe.new
             * {

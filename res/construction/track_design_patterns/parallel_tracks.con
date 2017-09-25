@@ -166,12 +166,6 @@ local function params()
             defaultIndex = 1
         },
         {
-            key = "edgeType",
-            name = _("Track carrier"),
-            values = {_("Normal"), _("Hidden Bridge")},
-            defaultIndex = 0
-        },
-        {
             key = "height",
             name = _("Altitude Adjustment") .. "(m)",
             values = func.seqMap({-10, 15}, tostring),
@@ -317,6 +311,53 @@ local updateFn = function()
             B = function(ls) return params.wallBType == 0 and ls[params.wallAType + 1] or ls[params.wallBType] end
         }
         
+        local wallGuidelines = offsets.walls
+            * (radius < 0 and pipe.noop() or pipe.rev())
+            * pipe.map(function(o) return guideline + o + wallOffset * (o > 0 and 1 or -1) end)
+        
+        local trackPavingGuidelines =
+            offsets.walls
+            * (radius < 0 and pipe.noop() or pipe.rev())
+            * pipe.map(function(o)
+                return pipe.new
+                    * func.seq(0, wallOffset)
+                    * pipe.map(function(d) return guideline + o + (d - 0.2455) * (o > 0 and 1 or -1) end)
+            end)
+        
+        local function mPlace(vfz)
+            return function(guideline, rad1, rad2)
+                local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
+                local z = fz(rad).z + vfz(rad).z
+                local s = -fz(rad).s - vfz(rad).s
+                local pt = guideline:pt(rad)
+                return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+            end
+        end
+        
+        local makeWallA = junction.makeFn(
+            retriveWall.A(wallList),
+            mPlace(vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1])),
+            retriveWall.A(wallTransList)(wallHeight.A) * (radius > 0 and coor.flipX() or coor.I()),
+            retriveWall.A(wallLengthList))
+        
+        local makeWallB = junction.makeFn(
+            retriveWall.B(wallList),
+            mPlace(vfz(wallHeight.B, params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar])),
+            retriveWall.B(wallTransList)(wallHeight.B) * (radius > 0 and coor.I() or coor.flipX()),
+            retriveWall.B(wallLengthList))
+        
+        local makePaving = junction.makeFn(
+            "track_design_patterns/paving_base.mdl",
+            mPlace(vfz(0, 0)),
+            coor.transZ(-1e-3),
+            5)
+        
+        local walls = pipe.new
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten()}
+            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
+        
         local terrainGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
@@ -360,72 +401,16 @@ local updateFn = function()
                 greater = polyGen(
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight)(p) end},
                     refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                    refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {}
+                    refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or 
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight + wallHeight)(p) end}
             )
             }
         end
         
-        local polys = station.mergePoly(
-            polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
-            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
-        )({less = 1.5})
-        
-        local wallGuidelines = offsets.walls
-            * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o) return guideline + o + wallOffset * (o > 0 and 1 or -1) end)
-        
-        
-        local trackPavingGuidelines =
-            offsets.walls
-            * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o)
-                return pipe.new
-                    * func.seq(0, wallOffset)
-                    * pipe.map(function(d) return guideline + o + (d - 0.2455) * (o > 0 and 1 or -1) end)
-            end)
-        
-        local function mPlace(vfz)
-            return function(guideline, rad1, rad2)
-                local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
-                local z = fz(rad).z + vfz(rad).z
-                local s = -fz(rad).s - vfz(rad).s
-                local pt = guideline:pt(rad)
-                return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
-            end
-        end
-        
-        local makeWallA = junction.makeFn(
-            retriveWall.A(wallList),
-            mPlace(vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1])),
-            retriveWall.A(wallTransList)(wallHeight.A) * (radius > 0 and coor.flipX() or coor.I()),
-            retriveWall.A(wallLengthList))
-        
-        local makeWallB = junction.makeFn(
-            retriveWall.B(wallList),
-            mPlace(vfz(wallHeight.B, params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar])),
-            retriveWall.B(wallTransList)(wallHeight.B) * (radius > 0 and coor.I() or coor.flipX()),
-            retriveWall.B(wallLengthList))
-        
-        local makePaving = junction.makeFn(
-            "track_design_patterns/paving_base.mdl",
-            mPlace(vfz(0, 0)),
-            coor.transZ(-0.01),
-            5)
-        
-        local walls = pipe.new
-            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA * pipe.flatten()}
-            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB * pipe.flatten()}
-            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
-            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
-        local edgeBuilder = params.edgeType == 0 and trackBuilder.nonAligned() or trackBuilder.bridge("void_bridge.lua")
-        
         return
             pipe.new
             * {
-                edgeLists =
-                {
-                    pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * edgeBuilder,
-                },
+                edgeLists = {pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * trackBuilder.nonAligned()},
                 edgeObjects = pipe.new
                 * func.seqMap({0, nbTracks - 1}, function(n) return
                     func.seqMap({0, #limits * 2 - 1}, function(i) return
@@ -443,7 +428,10 @@ local updateFn = function()
                 * pipe.flatten()
                 * pipe.flatten(),
                 models = walls * pipe.flatten(),
-                terrainAlignmentLists = polys
+                terrainAlignmentLists = station.mergePoly(
+                    polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
+                    polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
+                )({less = 1.5})
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
