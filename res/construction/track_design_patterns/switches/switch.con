@@ -59,7 +59,7 @@ local function params()
         {
             key = "nbTracks",
             name = _("Number of tracks"),
-            values = {_("1"), _("2"), _("3"), _("4"), _("5"), _("6")},
+            values = func.seqMap({1, 10}, tostring),
             defaultIndex = 0
         },
         {
@@ -175,7 +175,7 @@ local updateFn = function()
                 l = guidelines.l + 2.5 * nbTracks + (compactness or 0),
                 r = guidelines.r + 2.5 * nbTracks + (compactness or 0),
             }
-
+            
             return {
                 l = limArc.l:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1]),
                 r = limArc.r:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1])
@@ -381,6 +381,8 @@ local updateFn = function()
         local wallGuidelines = {
             (guidelines.l + (-abs(offsets.walls[1] - wallOffset))),
                 (guidelines.r + (-abs(offsets.walls[2] + wallOffset))),
+                (guidelines.complementary.l + (compactness and 1 or -1) * (-abs(offsets.walls[1] - wallOffset))),
+                (guidelines.complementary.r + (compactness and 1 or -1) * (-abs(offsets.walls[2] + wallOffset))),
                 (guidelines.c + (-abs(offsets.walls[1] - wallOffset))),
                 (guidelines.c + (abs(offsets.walls[2] + wallOffset)))
         }
@@ -389,6 +391,8 @@ local updateFn = function()
             {
                 func.seqMap({0, wallOffset}, function(d) return guidelines.l + (-d + 0.2455 + offsets.walls[1]) end),
                 func.seqMap({0, wallOffset}, function(d) return guidelines.r + (-d + 0.2455 - offsets.walls[#offsets.walls]) end),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.complementary.l + (compactness and 1 or -1) * (-d + 0.2455 + offsets.walls[1]) end),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.complementary.r + (compactness and 1 or -1) * (-d + 0.2455 - offsets.walls[#offsets.walls]) end),
                 func.seqMap({0, wallOffset}, function(d) return guidelines.c + (-d + 0.2455 + offsets.walls[1]) end),
                 func.seqMap({0, wallOffset}, function(d) return guidelines.c + (d - 0.2455 + offsets.walls[#offsets.walls]) end)
             }
@@ -477,15 +481,24 @@ local updateFn = function()
         local pointTerrain = pipe.exec * function()
             local lp = guidelines.l + offsets.tracks[#offsets.tracks]
             local rp = guidelines.r + (-offsets.tracks[1])
+            
+            local lpc = guidelines.complementary.l + (compactness and 1 or -1) * offsets.tracks[#offsets.tracks]
+            local rpc = guidelines.complementary.r + (compactness and 1 or -1) * (-offsets.tracks[1])
+            
             local int = func.max(lp - rp, function(l, r) return l.y < r.y end)
             local radlp = lp:rad(int)
             local radrp = rp:rad(int)
-            lp = lp:withLimits({inf = radlp, mid = 0.5 * (radlp + lp.sup), sup = lp.sup})
-            rp = rp:withLimits({inf = radrp, mid = 0.5 * (radrp + rp.sup), sup = rp.sup})
+            
+            lp = lp:withLimits({inf = radlp, mid = 0.5 * (radlp + lp.mid), sup = lp.mid})
+            rp = rp:withLimits({inf = radrp, mid = 0.5 * (radrp + rp.mid), sup = rp.mid})
             
             return {
-                platform = (junction.generatePolyArc({lp, lp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
-                + junction.generatePolyArc({rp, rp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0))
+                platform = (
+                junction.generatePolyArc({lp, lp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
+                + junction.generatePolyArc({rp, rp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
+                + junction.generatePolyArc({lpc, lpc + (compactness and (2.5 + compactness) or -2.5)}, "mid", "sup")(-0.2, 0)
+                + junction.generatePolyArc({rpc, rpc + (compactness and (2.5 + compactness) or -2.5)}, "mid", "sup")(-0.2, 0)
+                )
                 * pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)) * station.projectPolys(coor.I())
             }
         
@@ -511,19 +524,19 @@ local updateFn = function()
             end
         end
         
-        local makeWallA = function(fz)
+        local makeWallA = function(fz, flip)
             return junction.makeFn(
                 retriveWall.A(wallList),
                 mPlace(fz),
-                retriveWall.A(wallTransList)(wallHeight.A),
+                retriveWall.A(wallTransList)(wallHeight.A) * (flip and coor.flipX() or coor.I()),
                 retriveWall.A(wallLengthList))
         end
         
-        local makeWallB = function(fz)
+        local makeWallB = function(fz, flip)
             return junction.makeFn(
                 retriveWall.B(wallList),
                 mPlace(fz),
-                retriveWall.B(wallTransList)(wallHeight.B),
+                retriveWall.B(wallTransList)(wallHeight.B) * (flip and coor.flipX() or coor.I()),
                 retriveWall.B(wallLengthList))
         end
         
@@ -544,22 +557,27 @@ local updateFn = function()
                 5)
         end
         
-        
         local walls = pipe.new
-        -- + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz.l) * pipe.select(2)}
-        -- + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz.r) * pipe.select(2)}
-        -- + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz.l)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
-        -- + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz.r)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
-        -- + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[3] * makeWallA(fz.c) * pipe.select(1)}
-        -- + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[4] * makeWallBc(fz.c) * pipe.select(1)}
-        -- + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[3] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
-        -- + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[4] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz(guidelines.l)) * pipe.select(1)}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz(guidelines.r)) * pipe.select(1)}
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[3] * makeWallA(fz(guidelines.complementary.l), compactness == nil) * pipe.select(2)}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[4] * makeWallB(fz(guidelines.complementary.r), compactness == nil) * pipe.select(2)}
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[5] * makeWallA(fz(guidelines.c)) * pipe.select(1)}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[6] * makeWallBc(fz(guidelines.c)) * pipe.select(1)}
+            
+            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz(guidelines.l))) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz(guidelines.r))) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[3] * pipe.map(makePaving(fz(guidelines.complementary.l))) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[4] * pipe.map(makePaving(fz(guidelines.complementary.r))) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
+            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[5] * pipe.map(makePaving(fz(guidelines.c))) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[6] * pipe.map(makePaving(fz(guidelines.c))) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+        
         return
             pipe.new
             * {
                 edgeLists = {pipe.new * {arcs} * station.prepareEdges * trackBuilder.nonAligned()},
                 terrainAlignmentLists = polys,
-                models = {}, --walls * pipe.flatten(),
+                models = walls * pipe.flatten(),
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
