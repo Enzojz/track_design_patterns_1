@@ -71,7 +71,7 @@ local function params()
         {
             key = "compa",
             name = _("Compactness"),
-            values = {_("Extra loose"), _("Loose"), _("Standard"), _("Medium"), _("Compact")},
+            values = {_("Extra loose"), _("Loose"), _("Standard"), _("Medium"), _("Compact"), _("Complete")},
             defaultIndex = 2,
         },
         {
@@ -149,7 +149,8 @@ local updateFn = function()
         local offsets = junction.buildCoors(nbTracks, nbTracks)
         local wallOffset = params.wallOffset * 0.5
         
-        local rad = atan(1 / sizeSwitch[params.cot + 1])
+        local cot = sizeSwitch[params.cot + 1]
+        local rad = atan(1 / cot)
         local r = 1.435 * 0.5 / sin(0.5 * rad) ^ 2 + 2.5 * (nbTracks - 1)
         
         local radious = {
@@ -157,16 +158,11 @@ local updateFn = function()
             r = params.type == 0 and junction.infi or r
         }
         
-        local compactness = ({2, 1, 0, -1.25, -1.625})[params.compa + 1]
+        local compactness = params.compa == 5 and nil or ({2, 1, 0, -1.25, -1.625})[params.compa + 1]
         
         local guidelines = {
             l = arc.byOR(coor.xy(-radious.l, 0), radious.l),
             r = arc.byOR(coor.xy(radious.r, 0), radious.r),
-        }
-        
-        local limArc = {
-            l = guidelines.l + 2.5 * nbTracks + compactness,
-            r = guidelines.r + 2.5 * nbTracks + compactness,
         }
         
         local initRad = {
@@ -174,109 +170,207 @@ local updateFn = function()
             r = pi
         }
         
-        local finalRad = {
-            l = limArc.l:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1]),
-            r = limArc.r:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1])
-        }
+        local finalRad, interRad = (function()
+            local limArc = {
+                l = guidelines.l + 2.5 * nbTracks + (compactness or 0),
+                r = guidelines.r + 2.5 * nbTracks + (compactness or 0),
+            }
+            
+            local limArcc = {
+                l = guidelines.l + (params.type == 2 and (2.5 * nbTracks) or 0),
+                r = guidelines.r + (params.type == 0 and (2.5 * nbTracks) or 0),
+            }
+            
+            return {
+                l = limArc.l:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1]),
+                r = limArc.r:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1])
+            },
+            {
+                l = limArcc.l:rad((func.filter(limArcc.l - limArcc.r, function(p) return p.y > 0 end))[1]),
+                r = limArcc.r:rad((func.filter(limArcc.l - limArcc.r, function(p) return p.y > 0 end))[1]),
+            }
+        end)()
         
         local radc = 5 / junction.infi
         
         guidelines = {
             l = guidelines.l:withLimits({
-                sup = finalRad.l,
-                mid = initRad.l,
-                inf = -finalRad.l
+                sup = junction.normalizeRad(finalRad.l),
+                mid = junction.normalizeRad(interRad.l),
+                inf = junction.normalizeRad(initRad.l)
             }),
             r = guidelines.r:withLimits({
-                sup = finalRad.r,
-                mid = initRad.r,
-                inf = -finalRad.r
+                sup = junction.normalizeRad(finalRad.r),
+                mid = junction.normalizeRad(interRad.r),
+                inf = junction.normalizeRad(initRad.r)
             }),
             c = arc.byOR(coor.xy(-junction.infi, 0), junction.infi):withLimits({
                 sup = radc,
                 mid = 0,
                 inf = -radc
-            })
+            }),
+            complementary = compactness and {
+                l = guidelines.l:withLimits({
+                    sup = junction.normalizeRad(finalRad.l),
+                    mid = junction.normalizeRad(interRad.l),
+                    inf = junction.normalizeRad(initRad.l)
+                }),
+                r = guidelines.r:withLimits({
+                    sup = junction.normalizeRad(finalRad.r),
+                    mid = junction.normalizeRad(interRad.r),
+                    inf = junction.normalizeRad(initRad.r)
+                })
+            } or {
+                l = arc.byOR(guidelines.l.o + (guidelines.l:pt(interRad.l) - guidelines.l.o) * 2, guidelines.l.r):withLimits({
+                    sup = junction.normalizeRad(initRad.l + pi),
+                    mid = junction.normalizeRad(interRad.l + pi),
+                    inf = junction.normalizeRad(interRad.l + (interRad.l - initRad.l) + pi)
+                }),
+                r = arc.byOR(guidelines.r.o + (guidelines.r:pt(interRad.r) - guidelines.r.o) * 2, guidelines.r.r):withLimits({
+                    sup = junction.normalizeRad(initRad.r - pi),
+                    mid = junction.normalizeRad(interRad.r - pi),
+                    inf = junction.normalizeRad(interRad.r + (interRad.r - initRad.r) - pi)
+                }),
+            }
         }
         
         local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1) * 0.001
         
-        local fz = {
-            l = function(rad) return {z = guidelines.l:pt(rad).y * slope, s = slope} end,
-            r = function(rad) return {z = guidelines.r:pt(rad).y * slope, s = slope} end,
-            c = function(rad) return {z = guidelines.c:pt(rad).y * slope, s = slope} end,
-        }
+        local fz = function(g) return function(rad) return {z = g:pt(rad).y * slope, s = slope} end end
         
         
         local arcs = offsets.tracks
             * pipe.map(function(o) return {
                 l = guidelines.l + o,
                 r = guidelines.r + (-o),
-                c = guidelines.c + o
+                c = guidelines.c + o,
+                complementary = {
+                    l = guidelines.complementary.l + (compactness and o or -o),
+                    r = guidelines.complementary.r + (compactness and -o or o)
+                }
             } end
             )
             * function(g)
                 local l = g * pipe.map(pipe.select("l"))
                 local r = g * pipe.map(pipe.select("r"))
+                local complementary = {
+                    l = g * pipe.map(pipe.select("complementary")) * pipe.map(pipe.select("l")),
+                    r = g * pipe.map(pipe.select("complementary")) * pipe.map(pipe.select("r"))
+                }
+                local fg = function(l, ll, r, lr)
+                    return pipe.new
+                        * func.filter(l - r, function(pt)
+                            local radl = l:rad(pt)
+                            local radr = r:rad(pt)
+                            return (junction.normalizeRad(l[ll[1]]) - junction.normalizeRad(radl)) * (junction.normalizeRad(l[ll[2]]) - junction.normalizeRad(radl)) <= 0
+                                and (junction.normalizeRad(r[lr[1]]) - junction.normalizeRad(radr)) * (junction.normalizeRad(r[lr[2]]) - junction.normalizeRad(radr)) <= 0
+                        end)
+                        * pipe.map(function(pt) return {rad = l:rad(pt), g = l} end)
+                end
+                local x = function(g, y)
+                    return
+                        func.filter({
+                            fg(g.i, {"inf", "mid"}, y.i, {"inf", "mid"}),
+                            fg(g.i, {"inf", "mid"}, y.s, {"mid", "sup"}),
+                            fg(g.s, {"mid", "sup"}, y.i, {"inf", "mid"}),
+                            fg(g.s, {"mid", "sup"}, y.i, {"mid", "sup"})
+                        }, function(x) return #x > 0 end)
+                        [1][1]
+                end
+                local toXyz = function(pt, z) return coor.xyz(pt.x, pt.y, z) end
                 return
                     {
-                        c = g * pipe.map(pipe.select("c")),
+                        c = g * pipe.map(pipe.select("c")) * pipe.map(function(g) return generateArc(fz(g))(g) end) * pipe.map(pipe.select(1)),
                         l = l
+                        * pipe.zip(complementary.l, {"i", "s"})
                         * pipe.mapi(function(g, i)
-                            local rads = r * pipe.range(1, i - 1)
-                                * pipe.map(function(y) return pipe.new * (g - y) end)
-                                * pipe.map(pipe.filter(function(pt) return pt.y > 0 end))
-                                * pipe.flatten()
+                            local rads = r
+                                * pipe.zip(complementary.r, {"i", "s"})
+                                * pipe.range(1, i - 1)
+                                * pipe.map(function(y) return x(g, y) end)
+                            
+                            return (pipe.new +
+                                (compactness == nil and ((#rads > 0 and rads[1].g ~= g.s) or (#rads == 0))
+                                and {{rad = g.s.sup, g = g.s}, {rad = g.s.mid, g = g.s}}
+                                or {{rad = g.s.sup, g = g.s}}
+                                )
+                                + rads
+                                + {{rad = g.i.inf, g = g.i}}
+                                )
                                 * pipe.rev()
-                                * pipe.map(function(p) return g:rad(p) end)
-                            return (pipe.new + {initRad.l} + rads)
-                                * pipe.map2(rads / finalRad.l, function(l, r)
-                                    return g:withLimits({
-                                        sup = r,
-                                        mid = l,
-                                        inf = initRad.l - radc
-                                    })
+                                * pipe.map(function(p)
+                                    local pt = p.g:pt(p.rad)
+                                    local vec = p.g:tangent(p.rad)
+                                    local zs = fz(p.g)(p.rad)
+                                    return { p = toXyz(pt, zs.z), v = toXyz(vec, zs.s) }
                                 end)
                         end),
+                        
                         r = r
+                        * pipe.zip(complementary.r, {"i", "s"})
                         * pipe.mapi(function(g, i)
-                            local rads = l * pipe.range(i + 1, #l)
-                                * pipe.map(function(y) return pipe.new * (g - y) end)
-                                * pipe.map(pipe.filter(function(pt) return pt.y > 0 end))
-                                * pipe.flatten()
-                                * pipe.map(function(p) return g:rad(p) end)
-                            return (pipe.new + {initRad.r} + rads)
-                                * pipe.map2(rads / finalRad.r, function(l, r)
-                                    return g:withLimits({
-                                        sup = r,
-                                        mid = l,
-                                        inf = initRad.r + radc
-                                    })
+                            local rads = l
+                                * pipe.zip(complementary.l, {"i", "s"})
+                                * pipe.range(i + 1, #l)
+                                * pipe.map(function(y) return x(g, y) end)
+                            
+                            return (pipe.new +
+                                {{rad = g.i.inf, g = g.i}}
+                                + rads
+                                + (compactness == nil and ((#rads > 0 and rads[1].g ~= g.s) or (#rads == 0))
+                                and {{rad = g.s.mid, g = g.s}, {rad = g.s.sup, g = g.s}}
+                                or {{rad = g.s.sup, g = g.s}}
+                                )
+                                )
+                                * pipe.map(function(p)
+                                    local pt = p.g:pt(p.rad)
+                                    local vec = p.g:tangent(p.rad)
+                                    local zs = fz(p.g)(p.rad)
+                                    return { p = toXyz(pt, zs.z), v = toXyz(vec, zs.s) }
                                 end)
                         end)
                     }
             end
             * function(g)
-                local larc = g.l * pipe.map(pipe.map(generateArc(fz.l))) * pipe.map(pipe.map(pipe.select(2)))
-                local rarc = g.r * pipe.map(pipe.map(generateArc(fz.r))) * pipe.map(pipe.map(pipe.select(2)))
-                    * pipe.mapi(function(g, i)
-                        return pipe.new * g * pipe.mapi(function(a, j)
-                            return {
-                                larc[j + i - 1][j][1],
-                                (j + i) > #larc and a[2] or larc[i + j][j][2],
-                                a[3], a[4]
-                            }
-                        end)
+                local r = g.r
+                    * pipe.mapi(function(p, i) return
+                        p * pipe.range(#(g.r) - i + 2, #p)
+                        * pipe.fold(p * pipe.range(1, #(g.r) - i + 1),
+                            function(rs, s) 
+                            local v = s.p - rs[#rs].p 
+                            return (v:length() < 1.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y + v.z * s.v.z) < 0) and rs or rs / s end)
                     end)
-                local carc = g.c * pipe.map(generateArc(fz.c)) * pipe.map(pipe.select(1))
-                return (larc + rarc)
+                    * pipe.map(pipe.interlace({"l", "r"}))
+                    * pipe.map(pipe.map(function(s) return {s.l.p, s.r.p, s.l.v, s.r.v} end))
+                    * dump.dump
+                local l = g.l
+                    * pipe.mapi(function(p, i) return
+                        p * pipe.range(i + 1, #p)
+                        * pipe.fold(p * pipe.range(1, i),
+                            function(rs, s) 
+                            local v = s.p - rs[#rs].p 
+                            return (v:length() < 1.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y + v.z * s.v.z) < 0) and rs or rs / s end)
+                    end)
+                    * pipe.mapi(function(l, i) return
+                        l * pipe.range(1, i)
+                        * pipe.mapi(function(s, j) return {p = g.r[i - j + 1][j].p, v = s.v} end)
+                        + l * pipe.range(i + 1, #l)
+                    end)
+                    * pipe.map(pipe.interlace({"l", "r"}))
+                    * pipe.map(pipe.map(function(s) return {s.l.p, s.r.p, s.l.v, s.r.v} end))
+                    * dump.dump
+                local c = g.c
+                    * pipe.mapi(function(c, i)
+                        return {c[1], l[i][1][1], c[3], c[4]}
+                    end)
+                return (l)
                     * pipe.map(function(a) return {
                         edge = pipe.new * a,
                         snap = pipe.new * func.seq(1, #a - 1) * pipe.map(function(_) return {false, false} end) / {false, true}
                     } end)
                     / {
-                        edge = carc,
-                        snap = carc * pipe.map(function(_) return {true, false} end)
+                        edge = c,
+                        snap = c * pipe.map(function(_) return {true, false} end)
                     }
             end
             * station.mergeEdges
@@ -388,8 +482,8 @@ local updateFn = function()
             rp = rp:withLimits({inf = radrp, mid = 0.5 * (radrp + rp.sup), sup = rp.sup})
             
             return {
-                platform = (junction.generatePolyArc({lp, lp + 2.5 + compactness}, "inf", "sup")(-0.2, 0)
-                + junction.generatePolyArc({rp, rp + 2.5 + compactness}, "inf", "sup")(-0.2, 0))
+                platform = (junction.generatePolyArc({lp, lp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
+                + junction.generatePolyArc({rp, rp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0))
                 * pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)) * station.projectPolys(coor.I())
             }
         
@@ -448,20 +542,20 @@ local updateFn = function()
         
         
         local walls = pipe.new
-            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz.l) * pipe.select(2)}
-            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz.r) * pipe.select(2)}
-            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz.l)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
-            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz.r)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
-            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[3] * makeWallA(fz.c) * pipe.select(1)}
-            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[4] * makeWallBc(fz.c) * pipe.select(1)}
-            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[3] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
-            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[4] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+        -- + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz.l) * pipe.select(2)}
+        -- + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz.r) * pipe.select(2)}
+        -- + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz.l)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
+        -- + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz.r)) * pipe.map(pipe.select(2)) * pipe.flatten() or {}}
+        -- + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[3] * makeWallA(fz.c) * pipe.select(1)}
+        -- + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[4] * makeWallBc(fz.c) * pipe.select(1)}
+        -- + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[3] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+        -- + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[4] * pipe.map(makePaving(fz.c)) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
         return
             pipe.new
             * {
                 edgeLists = {pipe.new * {arcs} * station.prepareEdges * trackBuilder.nonAligned()},
-                terrainAlignmentLists = polys,
-                models = walls * pipe.flatten(),
+                -- terrainAlignmentLists = polys,
+                models = {}, --walls * pipe.flatten(),
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end

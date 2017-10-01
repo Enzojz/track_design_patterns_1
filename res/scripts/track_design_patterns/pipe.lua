@@ -214,6 +214,15 @@ function pipe.noop()
     end
 end
 
+function pipe.interlace(name)
+    name = name or {1, 2}
+    return function(ls)
+        local result = {}
+        for i = 1, #ls - 1 do result[i] = {[name[1]] = ls[i], [name[2]] = ls[i + 1]} end
+        return result
+    end
+end
+
 local pipeMeta = {
     __mul = function(lhs, rhs)
         local result = rhs(lhs)
