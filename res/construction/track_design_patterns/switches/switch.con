@@ -49,7 +49,7 @@ local wallTransList = {
     function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
-local sizeSwitch = {4.03, 5, 6, 7, 9, 12, 18, 24, 30, 36, 42, 50, 65}
+local sizeSwitch = {4.25, 5, 6, 7, 9, 12, 14, 16, 18, 24, 30, 36, 42, 50, 65}
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -195,14 +195,14 @@ local updateFn = function()
         
         guidelines = {
             l = guidelines.l:withLimits({
-                sup = junction.normalizeRad(finalRad.l),
-                mid = junction.normalizeRad(interRad.l),
-                inf = junction.normalizeRad(initRad.l)
+                sup = finalRad.l,
+                mid = interRad.l,
+                inf = initRad.l
             }),
             r = guidelines.r:withLimits({
-                sup = junction.normalizeRad(finalRad.r),
-                mid = junction.normalizeRad(interRad.r),
-                inf = junction.normalizeRad(initRad.r)
+                sup = finalRad.r,
+                mid = interRad.r,
+                inf = initRad.r
             }),
             c = arc.byOR(coor.xy(-junction.infi, 0), junction.infi):withLimits({
                 sup = radc,
@@ -211,25 +211,25 @@ local updateFn = function()
             }),
             complementary = compactness and {
                 l = guidelines.l:withLimits({
-                    sup = junction.normalizeRad(finalRad.l),
-                    mid = junction.normalizeRad(interRad.l),
-                    inf = junction.normalizeRad(initRad.l)
+                    sup = finalRad.l,
+                    mid = interRad.l,
+                    inf = initRad.l
                 }),
                 r = guidelines.r:withLimits({
-                    sup = junction.normalizeRad(finalRad.r),
-                    mid = junction.normalizeRad(interRad.r),
-                    inf = junction.normalizeRad(initRad.r)
+                    sup = finalRad.r,
+                    mid = interRad.r,
+                    inf = initRad.r
                 })
             } or {
                 l = arc.byOR(guidelines.l.o + (guidelines.l:pt(interRad.l) - guidelines.l.o) * 2, guidelines.l.r):withLimits({
-                    sup = junction.normalizeRad(initRad.l + pi),
-                    mid = junction.normalizeRad(interRad.l + pi),
-                    inf = junction.normalizeRad(interRad.l + (interRad.l - initRad.l) + pi)
+                    sup = initRad.l + pi,
+                    mid = interRad.l + pi,
+                    inf = interRad.l + (interRad.l - initRad.l) + pi
                 }),
                 r = arc.byOR(guidelines.r.o + (guidelines.r:pt(interRad.r) - guidelines.r.o) * 2, guidelines.r.r):withLimits({
-                    sup = junction.normalizeRad(initRad.r - pi),
-                    mid = junction.normalizeRad(interRad.r - pi),
-                    inf = junction.normalizeRad(interRad.r + (interRad.r - initRad.r) - pi)
+                    sup = initRad.r - pi,
+                    mid = interRad.r - pi,
+                    inf = interRad.r + (interRad.r - initRad.r) - pi
                 }),
             }
         }
@@ -257,25 +257,24 @@ local updateFn = function()
                     l = g * pipe.map(pipe.select("complementary")) * pipe.map(pipe.select("l")),
                     r = g * pipe.map(pipe.select("complementary")) * pipe.map(pipe.select("r"))
                 }
-                local fg = function(l, ll, r, lr)
-                    return pipe.new
-                        * func.filter(l - r, function(pt)
-                            local radl = l:rad(pt)
-                            local radr = r:rad(pt)
-                            return (junction.normalizeRad(l[ll[1]]) - junction.normalizeRad(radl)) * (junction.normalizeRad(l[ll[2]]) - junction.normalizeRad(radl)) <= 0
-                                and (junction.normalizeRad(r[lr[1]]) - junction.normalizeRad(radr)) * (junction.normalizeRad(r[lr[2]]) - junction.normalizeRad(radr)) <= 0
-                        end)
-                        * pipe.map(function(pt) return {rad = l:rad(pt), g = l} end)
-                end
-                local x = function(g, y)
+                local groupIntersection = function(g, y)
+                    local ptInLimite = function(ar, li, pt)
+                        local v1 = ar:pt(ar[li[1]]) - pt
+                        local v2 = ar:pt(ar[li[2]]) - pt
+                        return (v1.x * v2.x + v1.y * v2.y) < 0
+                    end
+                    local intersections = function(arcl, liml, arcr, limr)
+                        return pipe.new
+                            * func.filter(arcl - arcr, function(pt) return ptInLimite(arcl, liml, pt) and ptInLimite(arcr, limr, pt) end)
+                            * pipe.map(function(pt) return {rad = arcl:rad(pt), g = arcl} end)
+                    end
                     return
                         func.filter({
-                            fg(g.i, {"inf", "mid"}, y.i, {"inf", "mid"}),
-                            fg(g.i, {"inf", "mid"}, y.s, {"mid", "sup"}),
-                            fg(g.s, {"mid", "sup"}, y.i, {"inf", "mid"}),
-                            fg(g.s, {"mid", "sup"}, y.i, {"mid", "sup"})
-                        }, function(x) return #x > 0 end)
-                        [1][1]
+                            intersections(g.i, {"inf", "mid"}, y.i, {"inf", "mid"}),
+                            intersections(g.i, {"inf", "mid"}, y.s, {"mid", "sup"}),
+                            intersections(g.s, {"mid", "sup"}, y.i, {"inf", "mid"}),
+                            intersections(g.s, {"mid", "sup"}, y.s, {"mid", "sup"})
+                        }, function(x) return #x > 0 end)[1][1]
                 end
                 local toXyz = function(pt, z) return coor.xyz(pt.x, pt.y, z) end
                 return
@@ -287,7 +286,7 @@ local updateFn = function()
                             local rads = r
                                 * pipe.zip(complementary.r, {"i", "s"})
                                 * pipe.range(1, i - 1)
-                                * pipe.map(function(y) return x(g, y) end)
+                                * pipe.map(function(y) return groupIntersection(g, y) end)
                             
                             return (pipe.new +
                                 (compactness == nil and ((#rads > 0 and rads[1].g ~= g.s) or (#rads == 0))
@@ -302,7 +301,7 @@ local updateFn = function()
                                     local pt = p.g:pt(p.rad)
                                     local vec = p.g:tangent(p.rad)
                                     local zs = fz(p.g)(p.rad)
-                                    return { p = toXyz(pt, zs.z), v = toXyz(vec, zs.s) }
+                                    return {p = toXyz(pt, zs.z), v = toXyz(vec, zs.s)}
                                 end)
                         end),
                         
@@ -312,7 +311,7 @@ local updateFn = function()
                             local rads = l
                                 * pipe.zip(complementary.l, {"i", "s"})
                                 * pipe.range(i + 1, #l)
-                                * pipe.map(function(y) return x(g, y) end)
+                                * pipe.map(function(y) return groupIntersection(g, y) end)
                             
                             return (pipe.new +
                                 {{rad = g.i.inf, g = g.i}}
@@ -326,7 +325,7 @@ local updateFn = function()
                                     local pt = p.g:pt(p.rad)
                                     local vec = p.g:tangent(p.rad)
                                     local zs = fz(p.g)(p.rad)
-                                    return { p = toXyz(pt, zs.z), v = toXyz(vec, zs.s) }
+                                    return {p = toXyz(pt, zs.z), v = toXyz(vec, zs.s)}
                                 end)
                         end)
                     }
@@ -336,20 +335,19 @@ local updateFn = function()
                     * pipe.mapi(function(p, i) return
                         p * pipe.range(#(g.r) - i + 2, #p)
                         * pipe.fold(p * pipe.range(1, #(g.r) - i + 1),
-                            function(rs, s) 
-                            local v = s.p - rs[#rs].p 
-                            return (v:length() < 1.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y + v.z * s.v.z) < 0) and rs or rs / s end)
+                            function(rs, s)
+                                local v = s.p - rs[#rs].p
+                                return (v:length() < 0.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y) < 0) and rs or rs / s end)
                     end)
                     * pipe.map(pipe.interlace({"l", "r"}))
                     * pipe.map(pipe.map(function(s) return {s.l.p, s.r.p, s.l.v, s.r.v} end))
-                    * dump.dump
                 local l = g.l
                     * pipe.mapi(function(p, i) return
                         p * pipe.range(i + 1, #p)
                         * pipe.fold(p * pipe.range(1, i),
-                            function(rs, s) 
-                            local v = s.p - rs[#rs].p 
-                            return (v:length() < 1.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y + v.z * s.v.z) < 0) and rs or rs / s end)
+                            function(rs, s)
+                                local v = s.p - rs[#rs].p
+                                return (v:length() < 0.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y) < 0) and rs or rs / s end)
                     end)
                     * pipe.mapi(function(l, i) return
                         l * pipe.range(1, i)
@@ -358,12 +356,11 @@ local updateFn = function()
                     end)
                     * pipe.map(pipe.interlace({"l", "r"}))
                     * pipe.map(pipe.map(function(s) return {s.l.p, s.r.p, s.l.v, s.r.v} end))
-                    * dump.dump
                 local c = g.c
                     * pipe.mapi(function(c, i)
                         return {c[1], l[i][1][1], c[3], c[4]}
                     end)
-                return (l)
+                return (l + r)
                     * pipe.map(function(a) return {
                         edge = pipe.new * a,
                         snap = pipe.new * func.seq(1, #a - 1) * pipe.map(function(_) return {false, false} end) / {false, true}
