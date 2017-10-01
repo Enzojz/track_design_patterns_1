@@ -158,7 +158,7 @@ local updateFn = function()
             r = params.type == 0 and junction.infi or r
         }
         
-        local compactness = params.compa == 5 and nil or ({2, 1, 0, -1.25, -1.625})[params.compa + 1]
+        local compactness = params.compa == 5 and nil or ({2, 1, 0, -1, -1.5})[params.compa + 1]
         
         local guidelines = {
             l = arc.byOR(coor.xy(-radious.l, 0), radious.l),
@@ -175,19 +175,14 @@ local updateFn = function()
                 l = guidelines.l + 2.5 * nbTracks + (compactness or 0),
                 r = guidelines.r + 2.5 * nbTracks + (compactness or 0),
             }
-            
-            local limArcc = {
-                l = guidelines.l + (params.type == 2 and (2.5 * nbTracks) or 0),
-                r = guidelines.r + (params.type == 0 and (2.5 * nbTracks) or 0),
-            }
-            
+
             return {
                 l = limArc.l:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1]),
                 r = limArc.r:rad((func.filter(limArc.l - limArc.r, function(p) return p.y > 0 end))[1])
             },
             {
-                l = limArcc.l:rad((func.filter(limArcc.l - limArcc.r, function(p) return p.y > 0 end))[1]),
-                r = limArcc.r:rad((func.filter(limArcc.l - limArcc.r, function(p) return p.y > 0 end))[1]),
+                l = guidelines.l:rad((func.filter(guidelines.l - (guidelines.r + 2.5 * nbTracks), function(p) return p.y > 0 end))[1]),
+                r = guidelines.r:rad((func.filter(guidelines.r - (guidelines.l + 2.5 * nbTracks), function(p) return p.y > 0 end))[1]),
             }
         end)()
         
@@ -337,7 +332,7 @@ local updateFn = function()
                         * pipe.fold(p * pipe.range(1, #(g.r) - i + 1),
                             function(rs, s)
                                 local v = s.p - rs[#rs].p
-                                return (v:length() < 0.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y) < 0) and rs or rs / s end)
+                                return (v:length() < 0.3 / sin(rad) or (v.x * s.v.x + v.y * s.v.y) < 0) and rs or rs / s end)
                     end)
                     * pipe.map(pipe.interlace({"l", "r"}))
                     * pipe.map(pipe.map(function(s) return {s.l.p, s.r.p, s.l.v, s.r.v} end))
@@ -347,7 +342,7 @@ local updateFn = function()
                         * pipe.fold(p * pipe.range(1, i),
                             function(rs, s)
                                 local v = s.p - rs[#rs].p
-                                return (v:length() < 0.75 / sin(rad) or (v.x * s.v.x + v.y * s.v.y) < 0) and rs or rs / s end)
+                                return (v:length() < 0.3 / sin(rad) or (v.x * s.v.x + v.y * s.v.y) < 0) and rs or rs / s end)
                     end)
                     * pipe.mapi(function(l, i) return
                         l * pipe.range(1, i)
