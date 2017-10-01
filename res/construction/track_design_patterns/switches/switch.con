@@ -422,6 +422,16 @@ local updateFn = function()
                 * pipe.map(function(o) local ref = guidelines.r + (-o) return function(w) return ref + (o < 0 and w or -w) end end)
                 * pipe.map(gen)
                 * sort,
+                complementary = {
+                    l = offsets.walls
+                    * pipe.map(function(of) local o = (compactness and of or -of) local ref = guidelines.complementary.l + o return function(w) return ref + (o > 0 and w or -w) end end)
+                    * pipe.map(gen)
+                    * sort,
+                    r = offsets.walls
+                    * pipe.map(function(of) local o = (compactness and of or -of) local ref = guidelines.complementary.r + (-o) return function(w) return ref + (o < 0 and w or -w) end end)
+                    * pipe.map(gen)
+                    * sort
+                },
                 cl = pipe.new * {offsets.walls[1], 0}
                 * pipe.map(function(o) local ref = guidelines.c + o return function(w) return ref + (o > 0 and w or -w) end end)
                 * pipe.map(gen)
@@ -487,8 +497,10 @@ local updateFn = function()
         end
         
         local polys = station.mergePoly(
-            polyGen(wallHeight.A, wallHeight.B, terrainGuidelines.l, retriveWall.A(wallHeightList), "mid", "sup"),
-            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.r, retriveWall.B(wallHeightList), "mid", "sup"),
+            polyGen(wallHeight.A, wallHeight.B, terrainGuidelines.l, retriveWall.A(wallHeightList), "inf", "mid"),
+            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.r, retriveWall.B(wallHeightList), "inf", "mid"),
+            polyGen(wallHeight.A, wallHeight.B, terrainGuidelines.complementary.l, retriveWall.A(wallHeightList), "mid", "sup"),
+            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.complementary.r, retriveWall.B(wallHeightList), "mid", "sup"),
             polyGen(wallHeight.A, wallHeight.B, terrainGuidelines.cl, retriveWall.A(wallHeightList), "inf", "mid"),
             polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.cr, retriveWall.B(wallHeightList), "inf", "mid"),
             pointTerrain
@@ -551,7 +563,7 @@ local updateFn = function()
             pipe.new
             * {
                 edgeLists = {pipe.new * {arcs} * station.prepareEdges * trackBuilder.nonAligned()},
-                -- terrainAlignmentLists = polys,
+                terrainAlignmentLists = polys,
                 models = {}, --walls * pipe.flatten(),
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
