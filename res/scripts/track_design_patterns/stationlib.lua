@@ -1,6 +1,6 @@
-local func = require "flyingjunction/func"
-local pipe = require "flyingjunction/pipe"
-local coor = require "flyingjunction/coor"
+local func = require "track_design_patterns/func"
+local pipe = require "track_design_patterns/pipe"
+local coor = require "track_design_patterns/coor"
 
 local stationlib = {
     platformWidth = 5,

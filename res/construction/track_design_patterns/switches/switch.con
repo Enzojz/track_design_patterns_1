@@ -7,7 +7,7 @@ local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local junction = require "junction"
-local dump = require "datadumper"
+
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
@@ -150,8 +150,8 @@ local updateFn = function()
         local wallOffset = params.wallOffset * 0.5
         
         local cot = sizeSwitch[params.cot + 1]
-        local rad = atan(1 / cot)
-        local r = 1.435 * 0.5 / sin(0.5 * rad) ^ 2 + 2.5 * (nbTracks - 1)
+        local rad = atan(1 / cot) * (params.type == 1 and 0.5 or 1)
+        local r = 1.435 / (1 - cos(rad)) - 1.435 * 0.5 + 2.5 * (nbTracks - 1)
         
         local radious = {
             l = params.type == 2 and junction.infi or r,

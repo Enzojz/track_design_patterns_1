@@ -26,7 +26,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --]]
 local laneutil = require "laneutil"
-local func = require "flyingjunction/func"
+local func = require "track_design_patterns/func"
 
 local coor = {}
 coor.make = laneutil.makeLanes

@@ -1,6 +1,6 @@
-local coor = require "flyingjunction/coor"
-local line = require "flyingjunction/coorline"
-local func = require "flyingjunction/func"
+local coor = require "track_design_patterns/coor"
+local line = require "track_design_patterns/coorline"
+local func = require "track_design_patterns/func"
 local arc = {}
 
 local sin = math.sin

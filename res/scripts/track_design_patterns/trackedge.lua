@@ -1,4 +1,4 @@
-local func = require "flyingjunction/func"
+local func = require "track_design_patterns/func"
 local trackEdge = {}
 
 
