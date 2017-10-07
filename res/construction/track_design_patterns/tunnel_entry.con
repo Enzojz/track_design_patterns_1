@@ -6,12 +6,12 @@ local line = require "track_design_patterns/coorline"
 local arc = require "track_design_patterns/coorarc"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
-local junction = require "junction"
+local tdp = require "track_design_patterns"
 
 local pi = math.pi
 local abs = math.abs
 
-local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local rList = {tdp.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local slopeList = {15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100}
 local generalSlopeList = {0, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90}
 local wallList = {
@@ -28,7 +28,7 @@ local function params()
         {
             key = "nbTracks",
             name = _("Number of tracks"),
-            values = {_("1"), _("2"), _("3"), _("4"), _("5"), _("6"), },
+            values = func.seqMap({1, 10}, tostring),
             defaultIndex = 1
         },
         {
@@ -132,7 +132,7 @@ local updateFn = function(models)
         local nbTracks = params.nbTracks + 1
         local slope = (params.slopeSign == 0 and 1 or -1) * slopeList[params.slope + 1] * 0.001
         
-        local offsets = junction.buildCoors(nbTracks, nbTracks)
+        local offsets = tdp.buildCoors(nbTracks, nbTracks)
         local radius = {
             surface = (rList[params.radiusS + 1] * 1000) * (params.signS == 0 and 1 or -1),
             underground = (rList[params.radiusU + 1] * 1000) * (params.signU == 0 and 1 or -1)
@@ -183,7 +183,7 @@ local updateFn = function(models)
         
         local fz = {
             surface = pipe.exec * function()
-                local ln = line.byPtPt(coor.xy(radInit.surface, -height), coor.xy(radInit.surface + radFinal.surface, height * (- 1 + pctLength.surface)))
+                local ln = line.byPtPt(coor.xy(radInit.surface, -height), coor.xy(radInit.surface + radFinal.surface, height * (-1 + pctLength.surface)))
                 return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = -slope} end
             end,
             underground = pipe.exec * function()
@@ -225,26 +225,26 @@ local updateFn = function(models)
         
         local edges = station.fusionEdges({
             guidelines.surface
-            * pipe.map(junction.generateArc)
+            * pipe.map(tdp.generateArc)
             * pipe.map(pipe.range(1, 2))
             * pipe.map(pipe.map2(zsList.surface, function(ar, zs) return func.map2(ar, zs, coor.apply) end))
             * pipe.map(function(segs) return {edge = pipe.new * segs, snap = pipe.new / {true, false} / {false, false}} end),
             guidelines.underground
-            * pipe.map(junction.generateArc)
+            * pipe.map(tdp.generateArc)
             * pipe.map(pipe.range(1, 2))
             * pipe.map(pipe.map2(zsList.underground, function(ar, zs) return func.map2(ar, zs, coor.apply) end))
-            * pipe.map(function(segs) return {edge = pipe.new * segs, snap = pipe.new / {false, false} / {false, true}} end),
-            guidelines.side
-            * pipe.map(junction.generateArc)
-            * pipe.map(pipe.range(1, 3))
-            * pipe.map(function(segs) return {edge = pipe.new * segs, snap = pipe.new / {false, false} / {false, true} / {true, false}} end),
+            * pipe.map(function(segs) return {edge = pipe.new * segs, snap = pipe.new / {false, false} / {false, true}} end)
         })
+        / (guidelines.side
+        * pipe.map(tdp.generateArc)
+        * pipe.map(pipe.range(1, 3))
+        * pipe.map(function(segs) return {edge = pipe.new * segs, snap = pipe.new / {false, false} / {false, true} / {true, false}} end))
         
         local wallGuidelines = offsets.walls
             * pipe.map(function(o) return guideline.surface + (o) * (radius.surface > 0 and -1 or 1) end)
         
-        local polys = junction.generatePolyArc(wallGuidelines, "inf", "sup")(0, 2)
-        local polysTracks = junction.generatePolyArc(wallGuidelines, "mid", "sup")(1, 1)
+        local polys = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, 2)
+        local polysTracks = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(1, 1)
             * pipe.map(pipe.map(function(p) return coor.transZ(fz.surface(p.rad).z - 0.01)(p) end))
         
         local mPlace = function(guideline, rad1, rad2)
@@ -255,16 +255,16 @@ local updateFn = function(models)
         
         local wallType = 1
         
-        local makeWallL = junction.makeFn(
+        local makeWallL = tdp.makeFn(
             wallList[wallType],
             mPlace,
-            coor.scaleX(2) * coor.transX(-0.5) * coor.transZ(-9) * (radius.surface < 0 and coor.I() or coor.flipX()),
+            coor.transX(-0.5) * coor.transZ(-9) * (radius.surface < 0 and coor.I() or coor.flipX()),
             5)
         
-        local makeWallR = junction.makeFn(
+        local makeWallR = tdp.makeFn(
             wallList[wallType],
             mPlace,
-            coor.scaleX(2) * coor.transX(-0.5) * coor.transZ(-9) * (radius.surface > 0 and coor.I() or coor.flipX()),
+            coor.transX(-0.5) * coor.transZ(-9) * (radius.surface > 0 and coor.I() or coor.flipX()),
             5)
         
         local walls = pipe.new
@@ -352,7 +352,7 @@ function data()
                 mRoofFenceS = "flying_junction/concrete/roof_fence_side.mdl",
                 mRoof = "flying_junction/concrete/roof.mdl",
                 mSideOutter = "track_design_patterns/pillar_side.mdl",
-                bridgeType = "z_concrete_flying_junction.lua",
+                bridgeType = "z_concrete_flying_tdp.lua",
             }
     )
     }

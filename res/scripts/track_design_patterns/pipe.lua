@@ -202,6 +202,14 @@ function pipe.zip(ls2, name)
     end
 end
 
+function pipe.rep(n)
+    return function(content)
+        local result = {}
+        for i = 1, n do result[i] = content end
+        return result
+    end
+end
+
 function pipe.select(name, def)
     return function(el)
         return el[name] or def

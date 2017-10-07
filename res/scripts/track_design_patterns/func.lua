@@ -116,6 +116,7 @@ function func.seqMap(range, fun)
     return func.map(func.seq(table.unpack(range)), fun)
 end
 
+
 function func.bind(fun, ...)
     local rest = {...}
     return function(...)

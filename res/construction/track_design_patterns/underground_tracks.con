@@ -6,7 +6,7 @@ local arc = require "track_design_patterns/coorarc"
 local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
-local junction = require "junction"
+local tdp = require "track_design_patterns"
 
 local abs = math.abs
 local pi = math.pi
@@ -15,7 +15,7 @@ local cos = math.cos
 local sin = math.sin
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
-local rList = {junction.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local rList = {tdp.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -25,7 +25,7 @@ local function params()
         {
             key = "nbTracks",
             name = _("Number of tracks"),
-            values = {_("1"), _("2"), _("3"), _("4"), _("5"), _("6"), _("7"), _("8"), _("9"), _("10"), _("12"), },
+            values = func.seqMap({1, 10}, tostring),
             defaultIndex = 1
         },
         {
@@ -141,7 +141,7 @@ local updateFn = function()
         local slopeA = slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001
         local slopeB = params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001
         
-        local offsets = junction.buildCoors(nbTracks, nbTracks)
+        local offsets = tdp.buildCoors(nbTracks, nbTracks)
         local initRad = radius > 0 and pi or 0
         local dRad = math.abs(length / radius) < 2 * pi and -length / radius or 2 * pi * 0.99
         
@@ -206,7 +206,7 @@ local updateFn = function()
             end)
         
         local arcs = guidelines
-            * pipe.map(pipe.map(junction.generateArc))
+            * pipe.map(pipe.map(tdp.generateArc))
             * pipe.map(pipe.map(pipe.range(1, 2)))
             * pipe.map(pipe.map2(zsList, function(a, zs) return func.map2(a, zs, function(ar, nz) return func.map2(ar, nz, coor.apply) end) end))
             * pipe.map(function(segs) return pipe.new * segs

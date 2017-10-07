@@ -6,7 +6,7 @@ local arc = require "track_design_patterns/coorarc"
 local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
-local junction = require "junction"
+local tdp = require "track_design_patterns"
 
 local abs = math.abs
 local pi = math.pi
@@ -146,7 +146,7 @@ local updateFn = function()
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local nbTracks = params.nbTracks + 1
-        local offsets = junction.buildCoors(nbTracks, nbTracks)
+        local offsets = tdp.buildCoors(nbTracks, nbTracks)
         local wallOffset = params.wallOffset * 0.5
         
         local cot = sizeSwitch[params.cot + 1]
@@ -154,8 +154,8 @@ local updateFn = function()
         local r = 1.435 / (1 - cos(rad)) - 1.435 * 0.5 + 2.5 * (nbTracks - 1)
         
         local radious = {
-            l = params.type == 2 and junction.infi or r,
-            r = params.type == 0 and junction.infi or r
+            l = params.type == 2 and tdp.infi or r,
+            r = params.type == 0 and tdp.infi or r
         }
         
         local compactness = params.compa == 5 and nil or ({2, 1, 0, -1, -1.5})[params.compa + 1]
@@ -186,7 +186,7 @@ local updateFn = function()
             }
         end)()
         
-        local radc = 5 / junction.infi
+        local radc = 5 / tdp.infi
         
         guidelines = {
             l = guidelines.l:withLimits({
@@ -199,7 +199,7 @@ local updateFn = function()
                 mid = interRad.r,
                 inf = initRad.r
             }),
-            c = arc.byOR(coor.xy(-junction.infi, 0), junction.infi):withLimits({
+            c = arc.byOR(coor.xy(-tdp.infi, 0), tdp.infi):withLimits({
                 sup = radc,
                 mid = 0,
                 inf = -radc
@@ -442,41 +442,7 @@ local updateFn = function()
             }
         end
         
-        local polyGen = function(wallHeight, refHeight, guidelines, wHeight, fr, to)
-            local f = function(s) return s.g and
-                junction.generatePolyArc(s.g, fr, to)(-0.2, 0)
-                * pipe.map(pipe.map(s.fz))
-                * station.projectPolys(coor.I())
-                or {}
-            end
-            local polyGen = function(l, e, g)
-                return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
-            end
-            
-            return {
-                slot = polyGen(
-                    {},
-                    {},
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end}
-                ),
-                equal = polyGen(
-                    {},
-                    refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end},
-                    {}
-                ),
-                less = polyGen(
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end},
-                    refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope + wallHeight)(p) end}
-                ),
-                greater = polyGen(
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight)(p) end},
-                    refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
-                    refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end} or
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight + wallHeight)(p) end}
-            )
-            }
-        end
+        local polyGen = tdp.polyGen(slope)
         
         local pointTerrain = pipe.exec * function()
             local lp = guidelines.l + offsets.tracks[#offsets.tracks]
@@ -494,10 +460,10 @@ local updateFn = function()
             
             return {
                 platform = (
-                junction.generatePolyArc({lp, lp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
-                + junction.generatePolyArc({rp, rp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
-                + junction.generatePolyArc({lpc, lpc + (compactness and (2.5 + compactness) or -2.5)}, "mid", "sup")(-0.2, 0)
-                + junction.generatePolyArc({rpc, rpc + (compactness and (2.5 + compactness) or -2.5)}, "mid", "sup")(-0.2, 0)
+                tdp.generatePolyArc({lp, lp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
+                + tdp.generatePolyArc({rp, rp + 2.5 + (compactness or 0)}, "inf", "sup")(-0.2, 0)
+                + tdp.generatePolyArc({lpc, lpc + (compactness and (2.5 + compactness) or -2.5)}, "mid", "sup")(-0.2, 0)
+                + tdp.generatePolyArc({rpc, rpc + (compactness and (2.5 + compactness) or -2.5)}, "mid", "sup")(-0.2, 0)
                 )
                 * pipe.map(pipe.map(function(p) return coor.transZ(p.y * slope)(p) end)) * station.projectPolys(coor.I())
             }
@@ -518,14 +484,14 @@ local updateFn = function()
             return function(guideline, rad1, rad2)
                 local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
                 local z = fz(rad).z
-                local s = -fz(rad).s
+                local s = -fz(rad).s * (tdp.normalizeRad(rad) > 0.5 * pi and 1 or -1)
                 local pt = guideline:pt(rad)
                 return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
             end
         end
         
         local makeWallA = function(fz, flip)
-            return junction.makeFn(
+            return tdp.makeFn(
                 retriveWall.A(wallList),
                 mPlace(fz),
                 retriveWall.A(wallTransList)(wallHeight.A) * (flip and coor.flipX() or coor.I()),
@@ -533,7 +499,7 @@ local updateFn = function()
         end
         
         local makeWallB = function(fz, flip)
-            return junction.makeFn(
+            return tdp.makeFn(
                 retriveWall.B(wallList),
                 mPlace(fz),
                 retriveWall.B(wallTransList)(wallHeight.B) * (flip and coor.flipX() or coor.I()),
@@ -541,7 +507,7 @@ local updateFn = function()
         end
         
         local makeWallBc = function(fz)
-            return junction.makeFn(
+            return tdp.makeFn(
                 retriveWall.B(wallList),
                 mPlace(fz),
                 retriveWall.B(wallTransList)(wallHeight.B) * coor.flipX(),
@@ -550,7 +516,7 @@ local updateFn = function()
         
         
         local makePaving = function(fz)
-            return junction.makeFn(
+            return tdp.makeFn(
                 "track_design_patterns/paving_base.mdl",
                 mPlace(fz),
                 coor.transZ(-1e-3),
