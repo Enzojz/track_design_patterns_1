@@ -15,6 +15,7 @@ local pi = math.pi
 local atan = math.atan
 local cos = math.cos
 local sin = math.sin
+local tan = math.tan
 
 local generateArc = function(fz)
     return function(arc)
@@ -59,16 +60,10 @@ local function params()
         paramsutil.makeTrackTypeParam(),
         paramsutil.makeTrackCatenaryParam(),
         {
-            key = "nbTracks",
-            name = _("Number of tracks"),
-            values = func.seqMap({1, 10}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "type",
-            name = _("Type"),
-            values = {_("Left"), _("Wye"), _("Right")},
-            defaultIndex = 0
+            key = "distance",
+            name = _("Track Distance"),
+            values = {"5", "9", "10"},
+            defaultIndex = 0,
         },
         {
             key = "pattern",
@@ -157,24 +152,28 @@ local updateFn = function()
         local offsets = junction.buildCoors(nbTracks, nbTracks)
         local wallOffset = params.wallOffset * 0.5
         
+        local distance = ({5, 9, 10})[params.distance + 1]
+        
         local cot = sizeSwitch[params.cot + 1]
         local rad = atan(1 / cot)
         local w = 1.435
-        local r = w / (1 - cos(rad)) - w * 0.5 + 2.5 * (nbTracks - 1)
         
-        local h = w / sin(rad) + (2.5 + 0.5 * w) * cos(rad) / sin(rad)
-        
-        local x = 2.5
+        local h = w / sin(rad) + (distance * 0.5 + 0.5 * w) / tan(rad)
+        local x = distance * 0.5
         local y = h
-        
+        local f = (distance - w) * 0.5 / tan(rad) * 0.5
+
+        local vec = coor.xyz(sin(rad), cos(rad), 0)
+
         local sBase = pipe.new
             * {
                 {coor.xyz(-x, -y, 0), coor.xyz(-x, -y - 1, 0), coor.xyz(0, -1, 0), coor.xyz(0, -1, 0)},
                 {coor.xyz(-x, -y, 0), coor.xyz(-x, 0, 0), coor.xyz(0, 1, 0), coor.xyz(0, 1, 0)},
             }
         
-        local base = sBase /
-            {coor.xyz(-x, -y, 0), coor.xyz(0, 0, 0), coor.xyz(0, 1, 0), coor.xyz(sin(rad), cos(rad), 0)}
+        local base = sBase
+            / {coor.xyz(-x, -y, 0), vec * -f, coor.xyz(0, 1, 0), vec}
+            / {vec * -f, coor.xyz(0, 0, 0), vec, vec}
         
         
         local baseTr = function(tr)
@@ -200,19 +199,19 @@ local updateFn = function()
             {
                 {
                     edge = parts.lb + parts.rb + parts.lt + parts.rt,
-                    snap = pipe.new * {1, 2, 3, 4} * pipe.map(function(_) return {{false, true}, {false, false}, {false, false}} end) * pipe.flatten()
+                    snap = pipe.new * {1, 2, 3, 4} * pipe.map(function(_) return {{false, true}, {false, false}, {false, false}, {false, false}} end) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + s.lt + parts.rt + s.rb,
-                    snap = pipe.new * {1, 2} * pipe.map(function(_) return {{false, true}, {false, false}, {false, false}, {false, true}, {false, false}} end) * pipe.flatten()
+                    snap = pipe.new * {1, 2} * pipe.map(function(_) return {{false, true}, {false, false}, {false, false}, {false, false}, {false, true}, {false, false}} end) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + parts.rt,
-                    snap = pipe.new / {false, true} / {false, true} / {false, false} / {false, true} / {false, true} / {false, false}
+                    snap = pipe.new / {false, true} / {false, true} / {false, false} / {false, false} / {false, true} / {false, true} / {false, false} / {false, false}
                 },
                 {
                     edge = parts.lb + parts.rt + s.lt,
-                    snap = pipe.new / {false, true} / {false, false} / {false, false} / {false, true} / {false, true} / {false, false} / {false, true} / {false, false}
+                    snap = pipe.new / {false, true} / {false, false} / {false, false} / {false, false} / {false, true} / {false, true} / {false, false} / {false, false} / {false, true} / {false, false}
                 }
             }
             )[params.pattern + 1]
