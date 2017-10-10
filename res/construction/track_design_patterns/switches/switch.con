@@ -76,7 +76,7 @@ local function params()
         },
         {
             key = "cot",
-            name = "1/#",
+            name = "Turnout #",
             values = func.map(func.map(sizeSwitch, math.floor), tostring),
             defaultIndex = 5
         },

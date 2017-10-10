@@ -1,21 +1,20 @@
 local paramsutil = require "paramsutil"
 local func = require "track_design_patterns/func"
 local coor = require "track_design_patterns/coor"
-local line = require "track_design_patterns/coorline"
 local arc = require "track_design_patterns/coorarc"
 local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
 
-local dump = require "datadumper"
-
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
+local acos = math.acos
 local cos = math.cos
 local sin = math.sin
 local tan = math.tan
+local sqrt = math.sqrt
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local wallList = {
@@ -33,7 +32,7 @@ local wallTransList = {
     function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
-local sizeSwitch = {3.4, 4, 5, 6, 7, 9, 12, 14, 16, 18}
+local sizeSwitch = {4, 5, 6, 7, 9, 12, 14, 16, 18}
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -41,10 +40,10 @@ local function params()
         paramsutil.makeTrackTypeParam(),
         paramsutil.makeTrackCatenaryParam(),
         {
-            key = "distance",
-            name = _("Track Distance"),
-            values = {"5", "9", "10"},
-            defaultIndex = 0,
+            key = "cot",
+            name = "Turnout #",
+            values = func.map(func.map(sizeSwitch, math.floor), tostring),
+            defaultIndex = 5
         },
         {
             key = "pattern",
@@ -59,10 +58,10 @@ local function params()
             defaultIndex = 1,
         },
         {
-            key = "cot",
-            name = "Turnout #",
-            values = func.map(func.map(sizeSwitch, math.floor), tostring),
-            defaultIndex = 5
+            key = "distance",
+            name = _("Track Distance"),
+            values = {"5", "9", "10"},
+            defaultIndex = 0,
         },
         {
             key = "slopeSign",
@@ -129,8 +128,9 @@ local updateFn = function()
         local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
-        local nbTracks = 2
+        local orientation = params.orientation + 1
         local wallOffset = params.wallOffset * 0.5
+        local pattern = params.pattern + 1
         local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1) * 0.001
         
         local distance = ({5, 9, 10})[params.distance + 1]
@@ -138,12 +138,24 @@ local updateFn = function()
         local rad = atan(1 / cot)
         local w = 1.435
         
-        local h = w / sin(rad) + (distance * 0.5 + 0.5 * w) / tan(rad)
-        local x = distance * 0.5
-        local y = h
-        local f = (distance - w) * 0.5 / tan(rad) * 0.5
+        local r = w / (1 - cos(rad)) - w * 0.5
         
-        local vec = coor.xyz(sin(rad), cos(rad), 0)
+        local x, y, vec, f = table.unpack(cot < 5 and
+            pipe.exec * function()
+                local x = distance * 0.5
+                local y = sqrt(r * distance - distance * distance * 0.5)
+                local vec = coor.xyz(sin(acos(1 - x / r)), cos(acos(1 - x / r)), 0)
+                return {x, y, vec}
+            end
+            or
+            pipe.exec * function()
+                local x = distance * 0.5
+                local y = r * sin(rad) + (distance * 0.5 - (r - r * cos(rad))) / tan(rad)
+                local f = (distance - w) * 0.5 / tan(rad) * 0.5
+                local vec = coor.xyz(sin(rad), cos(rad), 0)
+                return {x, y, vec, f}
+            end
+        )
         
         local sBase = pipe.new
             * {
@@ -152,7 +164,7 @@ local updateFn = function()
             }
         
         local base =
-            cot < 4
+            cot < 5
             and sBase
             / {coor.xyz(-x, -y, 0), coor.xyz(0, 0, 0), coor.xyz(0, 1, 0), vec}
             or sBase
@@ -163,7 +175,7 @@ local updateFn = function()
         local baseTr = function(tr)
             return function(e)
                 return e
-                    * pipe.map(pipe.map(function(n) return n .. tr * (params.orientation == 1 and coor.I() or coor.flipX()) end))
+                    * pipe.map(pipe.map(function(n) return n .. tr * (orientation == 2 and coor.I() or coor.flipX()) end))
                     * pipe.map(pipe.map(function(pt) return coor.xyz(pt.x, pt.y, pt.y * slope) end))
             end
         end
@@ -187,25 +199,25 @@ local updateFn = function()
             {
                 {
                     edge = parts.lb + parts.rb + parts.lt + parts.rt,
-                    snap = (pipe.new / {false, true} + pipe.rep(cot < 4 and 2 or 3)({false, false})) * pipe.rep(4) * pipe.flatten()
+                    snap = (pipe.new / {false, true} + pipe.rep(cot < 5 and 2 or 3)({false, false})) * pipe.rep(4) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + s.lt + parts.rt + s.rb,
-                    snap = (pipe.new / {false, true} + pipe.rep(cot < 4 and 2 or 3)({false, false}) + {{false, true}, {false, false}}) * pipe.rep(2) * pipe.flatten()
+                    snap = (pipe.new / {false, true} + pipe.rep(cot < 5 and 2 or 3)({false, false}) + {{false, true}, {false, false}}) * pipe.rep(2) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + parts.rt,
-                    snap = (pipe.new / {false, true} / {false, true} + pipe.rep(cot < 4 and 1 or 2)({false, false})) * pipe.rep(2) * pipe.flatten()
+                    snap = (pipe.new / {false, true} / {false, true} + pipe.rep(cot < 5 and 1 or 2)({false, false})) * pipe.rep(2) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + parts.rt + s.lt,
                     snap =
-                    pipe.new / {false, true} + pipe.rep(cot < 4 and 2 or 3)({false, false})
-                    + pipe.new / {false, true} / {false, true} + pipe.rep(cot < 4 and 1 or 2)({false, false})
+                    pipe.new / {false, true} + pipe.rep(cot < 5 and 2 or 3)({false, false})
+                    + pipe.new / {false, true} / {false, true} + pipe.rep(cot < 5 and 1 or 2)({false, false})
                     + {{false, true}, {false, false}}
                 }
             }
-            )[params.pattern + 1]
+            )[pattern]
             * station.mergeEdges
         
         local guidelines = {
@@ -323,10 +335,10 @@ local updateFn = function()
         end
         
         local walls = pipe.new
-            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz(guidelines.l)) * pipe.flatten(1)}
-            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz(guidelines.r)) * pipe.flatten(1)}
-            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz(guidelines.l))) * pipe.flatten() * pipe.flatten() or {}}
-            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz(guidelines.r))) * pipe.flatten() * pipe.flatten() or {}}
+            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz(guidelines.l)) * (pattern == 3 and pipe.select(({2, 1})[orientation]) or pipe.flatten())}
+            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz(guidelines.r)) * (pattern > 2 and pipe.select(orientation) or pipe.flatten())}
+            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz(guidelines.l))) * pipe.map(pattern == 3 and pipe.select(({2, 1})[orientation]) or pipe.flatten()) * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz(guidelines.r))) * pipe.map(pattern > 2 and pipe.select(orientation) or pipe.flatten()) * pipe.flatten() or {}}
         
         return
             pipe.new

@@ -1,0 +1,43 @@
+function data()
+    return {
+        boundingInfo = {},
+        collider = {
+            type = "CYLINDER",
+            params = {
+                direction = "Z",
+                center = { .0, .0, 2.0 },
+                halfExtents = { .5, .5, 2.0 }
+            }
+        },
+        lods = {
+            {
+                animations = {
+                    
+                },
+                children = {
+                },
+                events = {
+                },
+                matConfigs = {
+                },
+                static = false,
+                visibleFrom = 0,
+                visibleTo = 380,
+                
+            }, 
+        },
+        metadata = {
+            description = {
+                name = _("CBTC Block"),
+                description = _("Used as a normal path signal to regulate traffic or as a one-way signal.")
+            },
+            availability = { yearFrom = 1925 },
+            cost = { price = 3000 },
+            signal = {
+                type = "PATH_SIGNAL"
+            }
+        },
+        
+    }
+    end
+    

@@ -420,7 +420,7 @@ local updateFn = function()
                                 edge = n * #limits * 2 + i,
                                 param = pos,
                                 left = isLeft,
-                                model = "railroad/signal_new_block.mdl"
+                                model = "railroad/signal_mb.mdl"
                             }
                         end)
                     end)

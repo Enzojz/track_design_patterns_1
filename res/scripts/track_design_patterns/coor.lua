@@ -77,11 +77,11 @@ end
 
 local vecXyzMeta = {
     __add = function(lhs, rhs)
-        return coor.xyz(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z)
+        return rhs.z and coor.xyz(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z) or coor.xy(lhs.x + rhs.x, lhs.y + rhs.y)
     end
     ,
     __sub = function(lhs, rhs)
-        return coor.xyz(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z)
+        return rhs.z and coor.xyz(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z) or coor.xy(lhs.x - rhs.x, lhs.y - rhs.y)
     end
     ,
     __mul = function(lhs, rhs)
