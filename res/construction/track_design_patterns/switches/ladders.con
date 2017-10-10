@@ -1,7 +1,6 @@
 local paramsutil = require "paramsutil"
 local func = require "track_design_patterns/func"
 local coor = require "track_design_patterns/coor"
-local line = require "track_design_patterns/coorline"
 local arc = require "track_design_patterns/coorarc"
 local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
@@ -13,7 +12,6 @@ local dump = require "datadumper"
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
-local sqrt = math.sqrt
 local acos = math.acos
 local cos = math.cos
 local sin = math.sin
@@ -184,7 +182,6 @@ local updateFn = function()
         
         local trY = function(e, n)
             return e * pipe.mapi(function(e) return {e[1] .. coor.transY(n * dy), e[2] .. coor.transY(dy * n), e[3], e[4]} end)
-                * pipe.map(pipe.map(function(n) return n .. (params.orientation == 1 and coor.I() or coor.flipX()) end))
                 * pipe.map(pipe.map(fz))
         end
         
@@ -227,7 +224,7 @@ local updateFn = function()
             local ext = arc.byOR(ipt - (ipt - guidelines.r.o):normalized() * tdp.infi, tdp.infi)
             ext = ext:withLimits(
                 {
-                    sup = ext:rad(ept),
+                    sup = ext:rad(ept + vec * 5),
                     mid = ext:rad(ipt),
                     inf = ext:rad(ipt * 2),
                 }
@@ -355,23 +352,25 @@ local updateFn = function()
         end
         
         local wallGuidelines = {
-            guidelines.l * pipe.map(function(g) return g + (abs(wallOffsets.l - wallOffset)) end),
-            guidelines.r * pipe.map(function(g) return g + (-abs(wallOffsets.r + wallOffset)) end),
-            guidelines.l * pipe.map(function(g) return g + (-abs(wallOffsets.l - wallOffset)) end),
+            guidelines.l * pipe.map(function(g) return g + (-wallOffsets.l + wallOffset) end),
+            guidelines.r * pipe.map(function(g) return g + (-wallOffsets.r - wallOffset) end),
+            guidelines.l * pipe.map(function(g) return g + (wallOffsets.l - wallOffset) end),
         }
         
         local trackPavingGuidelines =
             {
-                pipe.new * func.seqMap({0, wallOffset}, function(d) return func.map(guidelines.l, function(g) return g + (-d + 0.2455 - wallOffsets.l) end) end) * pipe.flatten(),
-                pipe.new * func.seqMap({0, wallOffset}, function(d) return func.map(guidelines.r, function(g) return g + (-d + 0.2455 - wallOffsets.r) end) end) * pipe.flatten()
+                pipe.new * func.seqMap({0, wallOffset}, function(d) return func.map(guidelines.l, function(g) return g + (d - 0.2455 - wallOffsets.l) end) end),
+                pipe.new * func.seqMap({0, wallOffset}, function(d) return func.map(guidelines.r, function(g) return g + (-d + 0.2455 - wallOffsets.r) end) end),
+                pipe.new * func.seqMap({0, wallOffset}, function(d) return func.map(guidelines.l, function(g) return g + (-d + 0.2455 + wallOffsets.l) end) end)
             }
         
         local walls = pipe.new
-            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * pipe.map(function(g) return makeWallA(fzg(g))(g) end) * pipe.map(pipe.select(2)) * pipe.flatten()}
-            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[3] * pipe.map(function(g) return makeWallB(fzg(g))(g) end) * pipe.select(1) * pipe.select(1)}
-            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * pipe.map(function(g) return makeWallB(fzg(g))(g) end) * pipe.map(pipe.select(2)) * pipe.flatten()}
-            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(pipe.map(function(g) return g * makePaving(fzg(g)) end)) * pipe.map(pipe.map(pipe.select(2))) * pipe.flatten() * pipe.flatten() or {}}
-            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(pipe.map(function(g) return g * makePaving(fzg(g)) end)) * pipe.map(pipe.map(pipe.select(2))) * pipe.flatten() * pipe.flatten() or {}}
+            + {wallHeight.A == 0 and {} or wallGuidelines[1] * pipe.map(function(g) return makeWallA(fzg(g))(g) end) * pipe.map(pipe.select(2)) * pipe.flatten()}
+            + {wallHeight.B == 0 and {} or wallGuidelines[3] * pipe.map(function(g) return makeWallB(fzg(g))(g) end) * pipe.select(1) * pipe.select(1)}
+            + {wallHeight.B == 0 and {} or wallGuidelines[2] * pipe.map(function(g) return makeWallB(fzg(g))(g) end) * pipe.map(pipe.select(2)) * pipe.flatten()}
+            + {wallHeight.A ~= 0 and trackPavingGuidelines[1] * pipe.map(pipe.map(function(g) return makePaving(fzg(g))(g) end)) * pipe.map(pipe.map(pipe.select(2))) * pipe.flatten() * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and trackPavingGuidelines[3] * pipe.map(pipe.map(function(g) return makePaving(fzg(g))(g) end)) * pipe.map(pipe.map(pipe.select(1))) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
+            + {wallHeight.B ~= 0 and trackPavingGuidelines[2] * pipe.map(pipe.map(function(g) return makePaving(fzg(g))(g) end)) * pipe.map(pipe.map(pipe.select(2))) * pipe.flatten() * pipe.flatten() or {}}
         
         return
             pipe.new
@@ -380,6 +379,7 @@ local updateFn = function()
                 terrainAlignmentLists = polys,
                 models = walls * pipe.flatten(),
             }
+            * station.setMirror(params.orientation == 0)
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
 end
