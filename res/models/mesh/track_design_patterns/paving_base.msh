@@ -10,7 +10,7 @@ function data() return
               tangent = { count = 24, offset = 288 }, 
               uv0 = { count = 24, offset = 288 }, 
              }, 
-          materials = { "flying_junction/paving.mtl" }
+          materials = { "track_design_patterns/paving.mtl" }
          }
        }, 
     vertexAttr = 

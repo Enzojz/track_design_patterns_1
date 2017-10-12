@@ -14,7 +14,7 @@ function data() return
               uv0 = 
                 { count = 2424, offset = 29088 }, 
              }, 
-          materials = { "flying_junction/brick.mtl" }
+          materials = { "track_design_patterns/brick.mtl" }
          }
        }, 
     vertexAttr = 

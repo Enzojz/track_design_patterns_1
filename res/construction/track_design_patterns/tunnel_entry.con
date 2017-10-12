@@ -347,12 +347,8 @@ function data()
         
         updateFn = updateFn(
             {
-                mSidePillar = "flying_junction/concrete/pillar_side.mdl",
-                mRoofFenceF = "flying_junction/concrete/roof_fence_front.mdl",
-                mRoofFenceS = "flying_junction/concrete/roof_fence_side.mdl",
-                mRoof = "flying_junction/concrete/roof.mdl",
-                mSideOutter = "track_design_patterns/pillar_side.mdl",
-                bridgeType = "z_concrete_flying_tdp.lua",
+                mRoofFenceF = "track_design_patterns/roof_fence_front.mdl",
+                mRoof = "track_design_patterns/roof.mdl",
             }
     )
     }
