@@ -555,14 +555,14 @@ function data()
         type = "RAIL_DEPOT",
         description = {
             name = _("Switches"),
-            description = _("A compact tunnel entry")
+            description = _("Switch on one track or switch group on many tracks.")
         },
         availability = {
-            yearFrom = 1892
+            yearFrom = 1850
         },
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
-        order = 27218,
+        order = 27225,
         -- skipCollision = false,
         -- autoRemovable = false,
         params = params(),

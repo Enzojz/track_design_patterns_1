@@ -338,9 +338,9 @@ function data()
             description = _("A compact tunnel entry")
         },
         availability = {
-            yearFrom = 1892
+            yearFrom = 1860
         },
-        order = 27218,
+        order = 27219,
         skipCollision = false,
         autoRemovable = false,
         params = params(),

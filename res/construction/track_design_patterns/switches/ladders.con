@@ -7,8 +7,6 @@ local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
 
-local dump = require "datadumper"
-
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
@@ -390,14 +388,14 @@ function data()
         type = "RAIL_DEPOT",
         description = {
             name = _("Track ladders"),
-            description = _("A compact tunnel entry")
+            description = _("Track ladders used to form a shunting yard or depot.")
         },
         availability = {
-            yearFrom = 1892
+            yearFrom = 1850
         },
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
-        order = 27218,
+        order = 27227,
         -- skipCollision = false,
         -- autoRemovable = false,
         params = params(),

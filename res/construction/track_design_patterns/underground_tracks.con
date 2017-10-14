@@ -83,24 +83,10 @@ local function params()
             defaultIndex = 0
         },
         {
-            key = "signalSpacingM",
-            name = sp .. "\n" .. _("Signal Spacing") .. "\n\n×1000m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        
-        },
-        {
-            key = "signalSpacingC",
-            name = "×100m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        
-        },
-        {
-            key = "signalSpacingD",
-            name = "×10m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
+            key = "signalSpacing",
+            name = sp .. "\n" .. _("Signal Spacing"),
+            values = {_("None"), _("Moving Block"), "100", "200", "400", "600", "800", "1000", "1500"},
+            defaultIndex = 4
         
         },
         {
@@ -136,7 +122,7 @@ local updateFn = function()
         local nbTracks = params.nbTracks + 1
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local length = params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000
-        local signalSpacing = (function(s) return s == 0 and length or s end)(params.signalSpacingD * 10 + params.signalSpacingC * 100 + params.signalSpacingM * 1000)
+        local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
         
         local slopeA = slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001
         local slopeB = params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001
@@ -241,7 +227,7 @@ local updateFn = function()
                 {
                     pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * station.prepareEdges * trackBuilder.tunnel("railroad_old.lua"),
                 },
-                edgeObjects = pipe.new
+                edgeObjects = length <= signalSpacing and {} or pipe.new
                 * func.seqMap({0, nbTracks - 1}, function(n) return
                     func.seqMap({0, #limits * 2 - 1}, function(i) return
                         func.map(signalPattern(n + 1, i + 1), function(p)
@@ -250,7 +236,7 @@ local updateFn = function()
                                 edge = n * #limits * 2 + i,
                                 param = pos,
                                 left = isLeft,
-                                model = "railroad/signal_new_block.mdl"
+                                model = params.signalSpacing == 1 and "railroad/signal_mb.mdl" or "railroad/signal_new_block.mdl"
                             }
                         end)
                     end)
@@ -269,14 +255,14 @@ function data()
         type = "RAIL_DEPOT",
         description = {
             name = _("Underground tracks"),
-            description = _("A compact tunnel entry")
+            description = _("Underground tracks with fix radious and signaling spacing.")
         },
         availability = {
-            yearFrom = 1892
+            yearFrom = 1860
         },
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
-        order = 27218,
+        order = 27220,
         -- skipCollision = false,
         -- autoRemovable = false,
         params = params(),

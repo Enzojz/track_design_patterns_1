@@ -2,8 +2,8 @@ function data()
     return {
         name = _("Void bridge"),
         
-        yearFrom = 1925,
-        yearTo = 0,
+        yearFrom = 1840,
+        yearTo = 1840,
         
         carriers = {"RAIL"},
         pillarRepeat = {"track_design_patterns/void.mdl"},

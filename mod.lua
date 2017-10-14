@@ -10,12 +10,12 @@
                 {
                     name = "Enzojz",
                     role = "CREATOR",
-                    text = "Idee, Scripting",
+                    text = "Idea, Scripting, Modeling",
                     steamProfile = "enzojz",
                     tfnetId = 27218,
                 },
             },
-            tags = {"Train Station", "Station", "Bridge", "Track"},
+            tags = {"Bridge", "Track", "Wall", "Track Assert", "Train Depot"},
         },
     }
 end

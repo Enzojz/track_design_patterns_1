@@ -260,8 +260,8 @@ local updateFn = function()
         
         local trackPavingGuidelines =
             {
-                func.seqMap({0, wallOffset}, function(d) return guidelines.l + (-d + 0.2455 + wallOffsets.l) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.r + (-d + 0.2455 - wallOffsets.r) end)
+                func.seqMap({0, wallOffset}, function(d) return guidelines.l:extendLimits(-0.05) + (-d + 0.2455 + wallOffsets.l) end),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.r:extendLimits(-0.05) + (-d + 0.2455 - wallOffsets.r) end)
             }
         local terrainGuidelines = pipe.exec * function()
             local sort = function(r) return
@@ -357,14 +357,14 @@ function data()
         type = "RAIL_DEPOT",
         description = {
             name = _("Crossover"),
-            description = _("A compact tunnel entry")
+            description = _("Crossover switch group.")
         },
         availability = {
-            yearFrom = 1892
+            yearFrom = 1850
         },
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
-        order = 27218,
+        order = 27226,
         -- skipCollision = false,
         -- autoRemovable = false,
         params = params(),

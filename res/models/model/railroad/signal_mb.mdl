@@ -28,10 +28,10 @@ function data()
         },
         metadata = {
             description = {
-                name = _("CBTC Block"),
-                description = _("Used as a normal path signal to regulate traffic or as a one-way signal.")
+                name = _("Enumlated Moving Block"),
+                description = _("Used as an enmlated moving block.")
             },
-            availability = { yearFrom = 1925 },
+            availability = { yearFrom = 1840, yearTo = 1840 },
             cost = { price = 3000 },
             signal = {
                 type = "PATH_SIGNAL"
