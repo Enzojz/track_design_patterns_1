@@ -14,6 +14,13 @@
                     steamProfile = "enzojz",
                     tfnetId = 27218,
                 },
+                {
+                    name = "RPGFabi",
+                    role = "GERMAIN TRANSLATOR",
+                    text = "Germin translation",
+                    steamProfile = "RPGFabi",
+                    tfnetId = 27570,
+                },
             },
             tags = {"Bridge", "Track", "Wall", "Track Assert", "Train Depot", "Train Station", "Tunnel"},
         },

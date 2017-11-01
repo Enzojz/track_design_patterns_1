@@ -71,7 +71,9 @@ local descEN = [[
     Some terrain may recalculated wrongly after joining two pieces of tracks together, this is caused by the game mechanism and I have no way to correct it.
     
     === Translations ===
-    Cette version manque encore la traduction française, parce que le français n'est pas mon langue maternel.
+    Cette version manque encore la traduction française, parce que le français n'est pas mon langue maternel, il faut prendre un peu plus du temps pour en finir.
+    English | Chinese: Enzojz
+    German: RPGFabi
 
     === Changelog ===
     1.1 
@@ -241,8 +243,8 @@ local descDE = [[
     
       
         === Translations ===
-        English | Chinese --> Enzojz
-        German  --> RPGFabi
+        English | Chinese: Enzojz
+        German: RPGFabi
         
         ]]
 
