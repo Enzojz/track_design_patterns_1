@@ -76,7 +76,7 @@ local function params()
         },
         {
             key = "cot",
-            name = "Turnout #",
+            name = _("Turnout #"),
             values = func.map(func.map(sizeSwitch, math.floor), tostring),
             defaultIndex = 5
         },
@@ -118,7 +118,7 @@ local function params()
         },
         {
             key = "wallOffset",
-            name = sp .. "\n" .. "Wall-Track distance",
+            name = sp .. "\n" .. _("Wall-Track distance"),
             values = func.seqMap({0, 8}, function(n) return tostring(n * 0.5) end),
             defaultIndex = 1
         },

@@ -93,7 +93,7 @@ local function params()
         },
         {
             key = "generalSlope",
-            name = _("General Slope(‰)"),
+            name = _("General Slope") .. "(‰)",
             values = func.map(generalSlopeList, tostring),
             defaultIndex = 0
         },

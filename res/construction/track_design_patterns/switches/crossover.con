@@ -41,14 +41,14 @@ local function params()
         paramsutil.makeTrackCatenaryParam(),
         {
             key = "cot",
-            name = "Turnout #",
+            name = _("Turnout #"),
             values = func.map(func.map(sizeSwitch, math.floor), tostring),
             defaultIndex = 5
         },
         {
             key = "pattern",
             name = _("Pattern"),
-            values = {"X", "N", "½ N", "¾ N"},
+            values = {_("X"), _("N"), "½"..("N"), "¾"..("N")},
             defaultIndex = 1,
         },
         {
@@ -101,7 +101,7 @@ local function params()
         },
         {
             key = "wallOffset",
-            name = sp .. "\n" .. "Wall-Track distance",
+            name = sp .. "\n" .. _("Wall-Track distance"),
             values = func.seqMap({0, 8}, function(n) return tostring(n * 0.5) end),
             defaultIndex = 1
         },
@@ -140,7 +140,9 @@ local updateFn = function()
         
         local r = w / (1 - cos(rad)) - w * 0.5
         
-        local x, y, vec, f = table.unpack(cot < 5 and
+        local isSimple = (cot == 4) or (cot == 5 and slope > 0.06 and distance == 5)
+        
+        local x, y, vec, f = table.unpack(isSimple and
             pipe.exec * function()
                 local x = distance * 0.5
                 local y = sqrt(r * distance - distance * distance * 0.5)
@@ -156,7 +158,6 @@ local updateFn = function()
                 return {x, y, vec, f}
             end
         )
-        
         local sBase = pipe.new
             * {
                 {coor.xyz(-x, -y, 0), coor.xyz(-x, -y - 1, 0), coor.xyz(0, -1, 0), coor.xyz(0, -1, 0)},
@@ -164,7 +165,7 @@ local updateFn = function()
             }
         
         local base =
-            cot < 5
+            isSimple
             and sBase
             / {coor.xyz(-x, -y, 0), coor.xyz(0, 0, 0), coor.xyz(0, 1, 0), vec}
             or sBase
@@ -199,21 +200,21 @@ local updateFn = function()
             {
                 {
                     edge = parts.lb + parts.rb + parts.lt + parts.rt,
-                    snap = (pipe.new / {false, true} + pipe.rep(cot < 5 and 2 or 3)({false, false})) * pipe.rep(4) * pipe.flatten()
+                    snap = (pipe.new / {false, true} + pipe.rep(isSimple and 2 or 3)({false, false})) * pipe.rep(4) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + s.lt + parts.rt + s.rb,
-                    snap = (pipe.new / {false, true} + pipe.rep(cot < 5 and 2 or 3)({false, false}) + {{false, true}, {false, false}}) * pipe.rep(2) * pipe.flatten()
+                    snap = (pipe.new / {false, true} + pipe.rep(isSimple and 2 or 3)({false, false}) + {{false, true}, {false, false}}) * pipe.rep(2) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + parts.rt,
-                    snap = (pipe.new / {false, true} / {false, true} + pipe.rep(cot < 5 and 1 or 2)({false, false})) * pipe.rep(2) * pipe.flatten()
+                    snap = (pipe.new / {false, true} / {false, true} + pipe.rep(isSimple and 1 or 2)({false, false})) * pipe.rep(2) * pipe.flatten()
                 },
                 {
                     edge = parts.lb + parts.rt + s.lt,
                     snap =
-                    pipe.new / {false, true} + pipe.rep(cot < 5 and 2 or 3)({false, false})
-                    + pipe.new / {false, true} / {false, true} + pipe.rep(cot < 5 and 1 or 2)({false, false})
+                    pipe.new / {false, true} + pipe.rep(isSimple and 2 or 3)({false, false})
+                    + pipe.new / {false, true} / {false, true} + pipe.rep(isSimple and 1 or 2)({false, false})
                     + {{false, true}, {false, false}}
                 }
             }

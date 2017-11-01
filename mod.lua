@@ -1,9 +1,9 @@
 ﻿function data()
     return {
         info = {
-            minorVersion = 0,
+            minorVersion = 1,
             severityAdd = "NONE",
-            severityRemove = "WARNING",
+            severityRemove = "CRITICAL",
             name = _("name"),
             description = _("desc"),
             authors = {
@@ -15,7 +15,7 @@
                     tfnetId = 27218,
                 },
             },
-            tags = {"Bridge", "Track", "Wall", "Track Assert", "Train Depot"},
+            tags = {"Bridge", "Track", "Wall", "Track Assert", "Train Depot", "Train Station", "Tunnel"},
         },
     }
 end
