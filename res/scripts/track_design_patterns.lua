@@ -9,6 +9,37 @@ local pi = math.pi
 local abs = math.abs
 
 tdp.infi = 1e8
+
+
+tdp.trackList = {"standard.lua", "high_speed.lua"}
+tdp.trackWidthList = {5, 5}
+tdp.trackType = pipe.exec * function()
+    local list = {
+        {
+            key = "trackType",
+            name = _("Track type"),
+            values = {_("Standard"), _("High-speed")},
+            yearFrom = 1925,
+            yearTo = 0
+        },
+        {
+            key = "catenary",
+            name = _("Catenary"),
+            values = {_("No"), _("Yes")},
+            defaultIndex = 1,
+            yearFrom = 1910,
+            yearTo = 0
+        }
+    }
+    if (commonapi and commonapi.uiparameter) then
+        commonapi.uiparameter.modifyTrackCatenary(list, {selectionlist = tdp.trackList})
+        tdp.trackWidthList = func.map(tdp.trackList, function(e) return commonapi.repos.track.getByName(e).data.trackDistance end)
+    end
+    
+    return pipe.new * list
+end
+
+
 tdp.buildCoors = function(numTracks, groupSize, config)
     config = config or {
         trackWidth = station.trackWidth,

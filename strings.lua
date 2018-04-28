@@ -76,6 +76,8 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.2
+    * CommonAPI support
     1.1 
     * Fixed the problem that #5 Crossover can't be build under some sitiations.
     * Fixed crash when length is set to 0.
@@ -156,6 +158,8 @@ local descZH = [[
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.2
+    * 支持CommonAPI
     1.1 
     * 修复了一些情况下5号渡线无法被建造的问题
     * 修复了长度为零的情况下游戏崩溃的问题 

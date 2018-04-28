@@ -53,9 +53,7 @@ local sizeSwitch = {4.25, 5, 6, 7, 9, 12, 14, 16, 18, 24, 30, 36, 42, 50, 65}
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
-    return {
-        paramsutil.makeTrackTypeParam(),
-        paramsutil.makeTrackCatenaryParam(),
+    return tdp.trackType + {
         {
             key = "nbTracks",
             name = _("Number of tracks"),
@@ -142,7 +140,7 @@ local updateFn = function()
     return function(params)
         defaultParams(params)
         
-        local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
+        local trackType = tdp.trackList[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local nbTracks = params.nbTracks + 1

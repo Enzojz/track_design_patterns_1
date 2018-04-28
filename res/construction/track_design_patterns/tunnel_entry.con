@@ -22,9 +22,7 @@ local wallList = {
 
 local function params()
     local sp = "----------------------------\n"
-    return {
-        paramsutil.makeTrackTypeParam(),
-        paramsutil.makeTrackCatenaryParam(),
+    return tdp.trackType + {
         {
             key = "nbTracks",
             name = _("Number of tracks"),
@@ -119,7 +117,7 @@ local updateFn = function(models)
     return function(params)
         defaultParams(params)
         
-        local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
+        local trackType = tdp.trackList[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local height = 8.5
