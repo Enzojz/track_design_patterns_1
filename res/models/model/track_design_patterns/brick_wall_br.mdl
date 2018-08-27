@@ -1,0 +1,39 @@
+function data()
+    return {
+        collider = {
+            params = {
+                center = {0, 0, 2.5},
+                halfExtents = {2.5, 0.25, 7.5}
+            },
+            type = "BOX"
+        },
+        lods = {
+            {
+                children = {
+                    {
+                        id = "track_design_patterns/brick_wall_br.msh",
+                        transf = {
+                            1, 0, 0, 0,
+                            0, 1, 0, 0,
+                            0, 0, 1, 0,
+                            0, 0, 0, 1
+                        },
+                        type = "MESH",
+                    },
+                },
+                matConfigs = {
+                    {0, },
+                },
+                static = true,
+                visibleFrom = 0,
+                visibleTo = 5000,
+            },
+        },
+        metadata = {
+            cost = {
+                price = 10000,
+            },
+        },
+    
+    }
+end

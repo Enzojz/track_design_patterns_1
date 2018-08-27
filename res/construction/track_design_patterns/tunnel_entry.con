@@ -7,7 +7,7 @@ local arc = require "track_design_patterns/coorarc"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
-
+local dump = require "datadumper"
 local pi = math.pi
 local abs = math.abs
 
@@ -15,9 +15,9 @@ local rList = {tdp.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3
 local slopeList = {15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100}
 local generalSlopeList = {0, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90}
 local wallList = {
-    "track_design_patterns/concrete_wall.mdl",
-    "track_design_patterns/brick_wall.mdl",
-    "track_design_patterns/arch_wall.mdl",
+    "track_design_patterns/concrete_wall",
+    "track_design_patterns/brick_wall",
+    "track_design_patterns/arch_wall",
 }
 
 local function params()
@@ -245,43 +245,48 @@ local updateFn = function(models)
         local polysTracks = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(1, 1)
             * pipe.map(pipe.map(function(p) return coor.transZ(fz.surface(p.rad).z - 0.01)(p) end))
         
-        local mPlace = function(guideline, rad1, rad2)
-            local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
-            local pt = guideline:pt(rad)
-            return coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+        local mPlace = function(fitModel, arcL, arcR, rad1, rad2)
+            local size = {
+                lt = arcL:pt(rad1):withZ(0),
+                lb = arcL:pt(rad2):withZ(0),
+                rt = arcR:pt(rad1):withZ(0),
+                rb = arcR:pt(rad2):withZ(0)
+            }
+    
+            return coor.transZ(-9) * fitModel(size)
         end
         
         local wallType = 1
         
-        local makeWallL = tdp.makeFn(
-            wallList[wallType],
-            mPlace,
-            coor.transX(-0.5) * coor.transZ(-9) * (radius.surface < 0 and coor.I() or coor.flipX()),
-            5)
-        
-        local makeWallR = tdp.makeFn(
-            wallList[wallType],
-            mPlace,
-            coor.transX(-0.5) * coor.transZ(-9) * (radius.surface > 0 and coor.I() or coor.flipX()),
-            5)
-        
+        local makeWallL = tdp.makeFn(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
+        local makeWallR = tdp.makeFn(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
+        local makeRoof = tdp.makeFn(models.mRoof, tdp.fitModel2D(5, 5), 5, mPlace)
+
         local walls = pipe.new
-            + {pipe.new * wallGuidelines[1] * makeWallL * pipe.flatten()}
-            + {pipe.new * wallGuidelines[2] * makeWallR * pipe.flatten()}
-            + func.map(offsets.tracks, function(o) return
-                {
-                    station.newModel(models.mRoofFenceF, coor.scaleY(2), coor.trans({x = o, z = -11.5, y = -0.5})),
-                    station.newModel(models.mRoof, coor.scaleX(1.1), coor.scaleY(0.8), coor.trans({x = o, z = -11 + 0.0001, y = 2}), coor.scaleZ(0.5))
+            + {pipe.new * makeWallL(wallGuidelines[1] + (radius.surface > 0 and 0.45 or -0.45)) * pipe.flatten()}
+            + {pipe.new * makeWallR(wallGuidelines[2] + (radius.surface < 0 and 0.45 or -0.45)) * pipe.flatten()}
+            + func.mapi(offsets.tracks, function(o, i)
+                local sizeF = {
+                    lt = coor.xyz(o - 3, -1, 0),
+                    rt = coor.xyz(o + 3, -1, 0),
+                    lb = coor.xyz(o - 3, 0, 0),
+                    rb = coor.xyz(o + 3, 0, 0),
+                }
+
+                local sizeR = {
+                    lt = coor.xyz(o - (i == 1 and 3.75 or 2.5), 0, 0),
+                    lb = coor.xyz(o - (i == 1 and 3.75 or 2.5), 4, 0),
+                    rt = coor.xyz(o + (i == #offsets.tracks and 3.75 or 2.5), 0, 0),
+                    rb = coor.xyz(o + (i == #offsets.tracks and 3.75 or 2.5), 4, 0),
+                }
+                
+                return {
+                    station.newModel(models.mRoofFenceF.."_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(true, true)(sizeF)),
+                    station.newModel(models.mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false, false)(sizeF)),
+                    station.newModel(models.mRoof.."_tl.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(true, true)(sizeR)),
+                    station.newModel(models.mRoof.."_br.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(false, false)(sizeR))
                 }
             end)
-            + {
-                {
-                    station.newModel("track_design_patterns/sand_wall.mdl", coor.scaleX(2), coor.scaleY(0.8),
-                        coor.trans({x = offsets.tracks[1] - 3.25, y = 2, z = -10 + 0.0001})),
-                    station.newModel("track_design_patterns/sand_wall.mdl", coor.scaleX(2), coor.scaleY(0.8),
-                        coor.trans({x = offsets.tracks[#offsets.tracks] + 3.25, y = 2, z = -10 + 0.0001})),
-                }
-            }
         
         return pipe.new
             * {
@@ -345,8 +350,8 @@ function data()
         
         updateFn = updateFn(
             {
-                mRoofFenceF = "track_design_patterns/roof_fence_front.mdl",
-                mRoof = "track_design_patterns/roof.mdl",
+                mRoofFenceF = "track_design_patterns/roof_fence_front",
+                mRoof = "track_design_patterns/roof",
             }
     )
     }

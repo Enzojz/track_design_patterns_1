@@ -69,6 +69,10 @@ function func.map2(ls1, ls2, fun)
     return func.pi.map2(ls2, fun)(ls1)
 end
 
+function func.mapi(ls, fun)
+    return func.pi.mapi(fun)(ls)
+end
+
 function func.range(ls, from, to)
     return func.pi.range(from, to)(ls)
 end
@@ -103,6 +107,10 @@ function func.seq(from, to)
     local result = {}
     for i = from, to do result[#result + 1] = i end
     return result
+end
+
+function func.interlace(ls, name)
+    return func.pi.interlace(name)(ls)
 end
 
 function func.zip(ls1, ls2, name)
