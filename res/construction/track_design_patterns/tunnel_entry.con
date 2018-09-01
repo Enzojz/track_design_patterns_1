@@ -258,9 +258,9 @@ local updateFn = function(models)
         
         local wallType = 1
         
-        local makeWallL = tdp.makeFn(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
-        local makeWallR = tdp.makeFn(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
-        local makeRoof = tdp.makeFn(models.mRoof, tdp.fitModel2D(5, 5), 5, mPlace)
+        local makeWallL = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
+        local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
+        local makeRoof =  tdp.makeFn(false)(models.mRoof, tdp.fitModel2D(5, 5), 5, mPlace)
 
         local walls = pipe.new
             + {pipe.new * makeWallL(wallGuidelines[1] + (radius.surface > 0 and 0.45 or -0.45)) * pipe.flatten()}
@@ -281,10 +281,10 @@ local updateFn = function(models)
                 }
                 
                 return {
-                    station.newModel(models.mRoofFenceF.."_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(true, true)(sizeF)),
-                    station.newModel(models.mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false, false)(sizeF)),
-                    station.newModel(models.mRoof.."_tl.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(true, true)(sizeR)),
-                    station.newModel(models.mRoof.."_br.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(false, false)(sizeR))
+                    station.newModel(models.mRoofFenceF.."_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(true, true)(sizeF)),
+                    station.newModel(models.mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF)),
+                    station.newModel(models.mRoof.."_tl.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(false)(true, true)(sizeR)),
+                    station.newModel(models.mRoof.."_br.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(false)(false, false)(sizeR))
                 }
             end)
         

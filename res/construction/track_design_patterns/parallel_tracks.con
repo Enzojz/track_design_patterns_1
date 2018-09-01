@@ -313,16 +313,17 @@ local updateFn = function()
             return function(fitModel, arcL, arcR, rad1, rad2)
                 local z1, z2 = fz(rad1).z + vfz(rad1).z, fz(rad2).z + vfz(rad2).z
                 local size = {
-                    lt = arcL:pt(rad1):withZ(z1),
-                    lb = arcL:pt(rad2):withZ(z2),
-                    rt = arcR:pt(rad1):withZ(z1),
-                    rb = arcR:pt(rad2):withZ(z2)
+                    lb = arcL:pt(rad1):withZ(z1),
+                    lt = arcL:pt(rad2):withZ(z2),
+                    rb = arcR:pt(rad1):withZ(z1),
+                    rt = arcR:pt(rad2):withZ(z2)
                 }
                 return mZ * fitModel(size)
             end
         end
+
         
-        local makeWallA = tdp.makeFn(
+        local makeWallA = tdp.makeFn(wallHeight.A < 0)(
             retriveWall.A(wallList),
             tdp.fitModel(1, 5),
             1, 
@@ -333,18 +334,18 @@ local updateFn = function()
             retriveWall.A(wallLengthList)
         )
         
-        local makeWallB = tdp.makeFn(
+        local makeWallB = tdp.makeFn(wallHeight.B > 0)(
             retriveWall.B(wallList),
             tdp.fitModel(1, 5),
             1,
             mPlace(
                 vfz(wallHeight.B, params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar]),
-                retriveWall.A(wallTransList)(wallHeight.A)
+                retriveWall.B(wallTransList)(wallHeight.B)
             ),
             retriveWall.B(wallLengthList)
         )
         
-        local makePaving = tdp.makeFn(
+        local makePaving = tdp.makeFn(false)(
             "track_design_patterns/paving_base",
             tdp.fitModel(1, 5),
             1,
