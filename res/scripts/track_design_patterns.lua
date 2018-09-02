@@ -248,10 +248,10 @@ end
 
 tdp.makeFn = function(rot180)
     local m = rot180 and coor.flipX() * coor.flipY() or coor.I()
-    return function(model, fitModel, w, mPlace, length)
-        local length = length or 5
-        local fitTopLeft = fitModel(false)(true, true)
-        local fitBottomRight = fitModel(false)(false, false)
+    return function(model, fitModel, mPlace, w, l)
+        local length = l or 5
+        local fitTopLeft = fitModel(w, l)(false)(true, true)
+        local fitBottomRight = fitModel(w, l)(false)(false, false)
         return function(obj)
             local coordsGen = arc.coords(obj, length)
             local inner = obj + (- w * 0.5)

@@ -258,9 +258,9 @@ local updateFn = function(models)
         
         local wallType = 1
         
-        local makeWallL = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
-        local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D(1, 5), 1, mPlace)
-        local makeRoof =  tdp.makeFn(false)(models.mRoof, tdp.fitModel2D(5, 5), 5, mPlace)
+        local makeWallL = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 1)
+        local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 1)
+        local makeRoof =  tdp.makeFn(false)(models.mRoof, tdp.fitModel2D, mPlace, 5)
 
         local walls = pipe.new
             + {pipe.new * makeWallL(wallGuidelines[1] + (radius.surface > 0 and 0.45 or -0.45)) * pipe.flatten()}
