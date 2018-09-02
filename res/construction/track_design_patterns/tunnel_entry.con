@@ -7,7 +7,6 @@ local arc = require "track_design_patterns/coorarc"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
-local dump = require "datadumper"
 local pi = math.pi
 local abs = math.abs
 
