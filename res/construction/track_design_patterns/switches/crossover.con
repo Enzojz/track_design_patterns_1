@@ -18,18 +18,18 @@ local sqrt = math.sqrt
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local wallList = {
-    "track_design_patterns/concrete_wall.mdl",
-    "track_design_patterns/brick_wall.mdl",
-    "track_design_patterns/arch_wall.mdl",
-    "asset/track_multi_sound_insulation_10m.mdl"
+    "track_design_patterns/concrete_wall",
+    "track_design_patterns/brick_wall",
+    "track_design_patterns/arch_wall",
+    "asset/track_multi_sound_insulation_10m"
 }
 local wallHeightList = {15, 15, 15, 8}
 local wallLengthList = {5, 5, 5, 10}
 local wallTransList = {
-    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return (h > 0 and coor.I() or coor.flipX()) * coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
+    function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
+    function(h) return coor.transY(3.2) * coor.rotZ(pi * 0.5) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
 local sizeSwitch = {4, 5, 6, 7, 9, 12, 14, 16, 18}
@@ -299,43 +299,60 @@ local updateFn = function()
         
         local fz = function(g) return function(rad) return {z = g:pt(rad).y * slope, s = slope} end end
         
-        local function mPlace(fz)
-            return function(guideline, rad1, rad2)
-                local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
-                local z = fz(rad).z
-                local s = -fz(rad).s * (tdp.normalizeRad(rad) > 0.5 * pi and 1 or -1)
-                local pt = guideline:pt(rad)
-                return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+        local function mPlace(fz, mZ)
+            return function(fitModel, arcL, arcR, rad1, rad2)
+                local z1, z2 = fz(rad1).z, fz(rad2).z
+                local size = {
+                    lb = arcL:pt(rad1):withZ(z1),
+                    lt = arcL:pt(rad2):withZ(z2),
+                    rb = arcR:pt(rad1):withZ(z1),
+                    rt = arcR:pt(rad2):withZ(z2)
+                }
+                return mZ * fitModel(size)
             end
         end
-        
-        local makeWallA = function(fz, flip)
-            return tdp.makeFn(
+
+        local makeWallA = function(fz)
+            return 
+                tdp.makeFn(wallHeight.A < 0)(
                 retriveWall.A(wallList),
-                mPlace(fz),
-                retriveWall.A(wallTransList)(wallHeight.A) * (flip and coor.flipX() or coor.I()),
-                retriveWall.A(wallLengthList))
+                tdp.fitModel(1, 5),
+                1, 
+                mPlace(
+                    fz,
+                    retriveWall.A(wallTransList)(wallHeight.A)
+                ),
+                retriveWall.A(wallLengthList)
+            )
         end
         
-        local makeWallB = function(fz, flip)
-            return tdp.makeFn(
+        local makeWallB = function(fz)
+            return 
+                tdp.makeFn(wallHeight.B > 0)(
                 retriveWall.B(wallList),
-                mPlace(fz),
-                retriveWall.B(wallTransList)(wallHeight.B) * (flip and coor.flipX() or coor.I()),
-                retriveWall.B(wallLengthList))
+                tdp.fitModel(1, 5),
+                1,
+                mPlace(
+                    fz,
+                    retriveWall.B(wallTransList)(wallHeight.B)
+                ),
+                retriveWall.B(wallLengthList)
+            )
         end
         
         local makePaving = function(fz)
-            return tdp.makeFn(
-                "track_design_patterns/paving_base.mdl",
-                mPlace(fz),
-                coor.transZ(-1e-3),
-                5)
+            return tdp.makeFn(false)(
+                "track_design_patterns/paving_base",
+                tdp.fitModel(1, 5),
+                1,
+                mPlace(fz, coor.transZ(-1e-3)),
+                5
+            )
         end
-        
+
         local walls = pipe.new
-            + {wallHeight.A == 0 and {} or pipe.new * wallGuidelines[1] * makeWallA(fz(guidelines.l)) * (pattern == 3 and pipe.select(({2, 1})[orientation]) or pipe.flatten())}
-            + {wallHeight.B == 0 and {} or pipe.new * wallGuidelines[2] * makeWallB(fz(guidelines.r)) * (pattern > 2 and pipe.select(orientation) or pipe.flatten())}
+            + {wallHeight.A == 0 and {} or pipe.new * makeWallA(fz(guidelines.l))(wallGuidelines[1]) * (pattern == 3 and pipe.select(({2, 1})[orientation]) or pipe.flatten())}
+            + {wallHeight.B == 0 and {} or pipe.new * makeWallB(fz(guidelines.r))(wallGuidelines[2]) * (pattern > 2 and pipe.select(orientation) or pipe.flatten())}
             + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving(fz(guidelines.l))) * pipe.map(pattern == 3 and pipe.select(({2, 1})[orientation]) or pipe.flatten()) * pipe.flatten() or {}}
             + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving(fz(guidelines.r))) * pipe.map(pattern > 2 and pipe.select(orientation) or pipe.flatten()) * pipe.flatten() or {}}
         
