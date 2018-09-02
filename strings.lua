@@ -76,6 +76,8 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.3
+    * Reimplementation of models and model positioning algorithm to have non-overlapping, non-flickering walls or bricks
     1.2
     * CommonAPI support
     1.1 
@@ -158,6 +160,8 @@ local descZH = [[
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.3
+    * 重写了模型和模型放置算法，消除了前后墙或者砖的模型之间的重叠和闪烁现象
     1.2
     * 支持CommonAPI
     1.1 
