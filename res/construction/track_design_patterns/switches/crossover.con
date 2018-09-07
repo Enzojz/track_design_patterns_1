@@ -59,7 +59,7 @@ local function params()
         {
             key = "distance",
             name = _("Track Distance"),
-            values = {"5", "9", "10"},
+            values = {"5", "9", "10", "11.5", "12", "14"},
             defaultIndex = 0,
         },
         {
@@ -132,7 +132,7 @@ local updateFn = function()
         local pattern = params.pattern + 1
         local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1) * 0.001
         
-        local distance = ({5, 9, 10})[params.distance + 1]
+        local distance = ({5, 9, 10, 11.5, 12, 14})[params.distance + 1]
         local cot = sizeSwitch[params.cot + 1]
         local rad = atan(1 / cot)
         local w = 1.435
