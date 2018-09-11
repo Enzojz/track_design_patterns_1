@@ -9,6 +9,7 @@ local streetEdge = require "track_design_patterns/streetedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
+local dump = require "datadumper"
 
 local abs = math.abs
 local pi = math.pi
@@ -152,8 +153,20 @@ local function params()
             values = {"S", "M", "L", "XL"},
             defaultIndex = 1
         },
-        paramsutil.makeTramTrackParam1(),
-        paramsutil.makeTramTrackParam2(),
+        {
+            key = "tramTrack",
+            name = _("Tram track"),
+            values = { _("No"), _("Yes") },
+            yearFrom = 0,
+            yearTo = 1875
+        },
+        {
+            key = "tramTrack",
+            name = _("Tram track"),
+            values = { _("No"), _("Yes"), _("Electric") },
+            yearFrom = 1875,
+            yearTo = 0
+        },
         {
             key = "slopeSignA",
             name = sp .. "\n" .. _("Slope"),
@@ -240,7 +253,13 @@ local function defaultParams(param)
     local function limiter(d, u)
         return function(v) return v and v < u and v or d end
     end
-    func.forEach(params(), function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
+    
+    param.trackType = param.trackType or 0
+    param.catenary = param.catenary or 0
+    
+    func.forEach(
+        func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
+        function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
 end
 
 local function guideline(radius, length, signalSpacing, wallHeight, connPos, slopeA, slopeB, e)
@@ -319,7 +338,7 @@ local updateFn = function()
         local streetWidth = streetGroup.width[params.streetType + 1]
 
         local tramType = ({"NO", "YES", "ELECTRIC"})[params.tramTrack + 1]
-
+        dump(params.tramTrack)
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local streetBuilder = streetEdge.builder(tramType, streetType)
         
@@ -563,12 +582,11 @@ local updateFn = function()
             )
             }
         end
-        local dump = require "datadumper"
         return
             pipe.new
             * {
                 edgeLists = pipe.new 
-                -- / (pipe.new * arcs * station.prepareEdges * trackBuilder.nonAligned())
+                / (pipe.new * arcs * station.prepareEdges * trackBuilder.nonAligned())
                 / (pipe.new * {street} * station.prepareEdges * streetBuilder.nonAligned())
                 ,
                 -- edgeObjects = length <= signalSpacing and {} or pipe.new
