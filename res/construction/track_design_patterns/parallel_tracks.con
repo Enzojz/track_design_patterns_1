@@ -20,7 +20,7 @@ local wallList = {
     "track_design_patterns/concrete_wall",
     "track_design_patterns/brick_wall",
     "track_design_patterns/arch_wall",
-    "track_design_patterns/track_multi_sound_insulation_10m"
+    "track_design_patterns/track_multi_lod_0_sound_insulation_10m"
 }
 local wallLengthList = {5, 5, 5, 10}
 local wallHeightList = {15, 15, 15, 8}
@@ -29,7 +29,7 @@ local wallTransList = {
     function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
     function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
+    function(h) return coor.rotZ(0.5 * pi) * coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
 }
 
 local function params()

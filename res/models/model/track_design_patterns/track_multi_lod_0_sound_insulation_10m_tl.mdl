@@ -8,7 +8,7 @@ function data()
             {
                 children = {
                     {
-                        id = "track_multi_lod_0_sound_insulation_10m_tl.msh",
+                        id = "track_design_patterns/track_multi_lod_0_sound_insulation_10m_tl.msh",
                         transf = {
                             1, 0, 0, 0,
                             0, 1, 0, 0,

@@ -207,10 +207,11 @@ tdp.normalizeRad = function(rad)
     return (rad < pi * -0.5) and tdp.normalizeRad(rad + pi * 2) or rad
 end
 
-tdp.generateArc = function(arc)
+tdp.generateArc = function(arc, ext)
+    local ext = ext or 5
     local toXyz = function(pt) return coor.xyz(pt.x, pt.y, 0) end
     
-    local extArc = arc:extendLimits(5)
+    local extArc = arc:extendLimits(ext)
     
     local sup = toXyz(arc:pt(arc.sup))
     local inf = toXyz(arc:pt(arc.inf))
@@ -224,10 +225,10 @@ tdp.generateArc = function(arc)
     local infExt = toXyz(extArc:pt(extArc.inf))
     
     return {
-        {inf, mid, vecInf, vecMid},
-        {mid, sup, vecMid, vecSup},
-        {infExt, inf, extArc:tangent(extArc.inf), vecInf},
-        {sup, supExt, vecSup, extArc:tangent(extArc.sup)},
+        {inf, mid, vecInf, vecMid, rad = {arc.inf, arc.mid}},
+        {mid, sup, vecMid, vecSup, rad = {arc.mid, arc.sup}},
+        {infExt, inf, extArc:tangent(extArc.inf), vecInf, rad = {extArc.inf, arc.inf}},
+        {sup, supExt, vecSup, extArc:tangent(extArc.sup), rad = {arc.sup, extArc.sup}}
     }
 end
 
