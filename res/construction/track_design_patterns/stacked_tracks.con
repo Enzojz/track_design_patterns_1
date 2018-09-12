@@ -256,7 +256,7 @@ local function defaultParams(param)
     
     param.trackType = param.trackType or 0
     param.catenary = param.catenary or 0
-    
+
     func.forEach(
         func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
         function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
@@ -287,32 +287,44 @@ local function guideline(radius, length, signalSpacing, wallHeight, connPos, slo
         end
     
     local function signalGrouping(result, leftLength)
-        return leftLength <= 0 and result / 1 or signalGrouping(result / ((length - leftLength) / length), leftLength - signalSpacing)
+        return leftLength <= 0 and result or signalGrouping(result / {pos = (length - leftLength), pct = 0.5}, leftLength - signalSpacing)
     end
     
     local limits = (signalGrouping(pipe.new, length) +
         (
             {
-                {},
                 {
-                    (length - wallHeight * 3) / length,
-                    wallHeight / length
+                    {pos = length, pct = 0.5}
                 },
                 {
-                    (length - wallHeight) / length,
-                    wallHeight * 3 / length
+                    {pos = 5, pct = 0.5},
+                    {pos = length - wallHeight * 1.5, pct = 0.5},
+                    {pos = length, pct = 0.1}
+                },
+                {
+                    {pos = wallHeight * 1.5, pct = 0.9},
+                    {pos = length - 5, pct = 0.5},
+                    {pos = length, pct = 0.5}
                 }
             }
         )[connPos])
-        * pipe.sort(function(a, b) return a < b end)
+        * pipe.filter(function(p)
+            return ({
+                true,
+                p.pos == 0 or p.pos == length or (p.pos >= 5 and p.pos <= length - wallHeight * 1.5),
+                p.pos == 0 or p.pos == length or (p.pos >= wallHeight * 1.5 and p.pos <= length - 5)  
+            })[connPos]
+        end)
+        * pipe.sort(function(a, b) return a.pos < b.pos end)
+        * pipe.map(function(p) return {pos = p.pos / length, pct = p.pct} end)
         * pipe.interlace({"f", "t"})
-        * pipe.filter(function(r) return r.f ~= r.t end)
+        * pipe.filter(function(r) return r.f.pos ~= r.t.pos end)
         * pipe.map(function(r)
             return
             {
-                inf = initRad + r.f * dRad,
-                mid = initRad + (r.f + r.t) * 0.5 * dRad,
-                sup = initRad + r.t * dRad
+                inf = initRad + r.f.pos * dRad,
+                mid = initRad + (r.f.pos * (1 - r.t.pct) + r.t.pos * r.t.pct) * dRad,
+                sup = initRad + r.t.pos * dRad
             }
         end)
     
@@ -338,7 +350,6 @@ local updateFn = function()
         local streetWidth = streetGroup.width[params.streetType + 1]
 
         local tramType = ({"NO", "YES", "ELECTRIC"})[params.tramTrack + 1]
-        dump(params.tramTrack)
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local streetBuilder = streetEdge.builder(tramType, streetType)
         
@@ -423,8 +434,6 @@ local updateFn = function()
             snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true}
         }
 
-        
-        
         local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
         
         local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
@@ -591,7 +600,7 @@ local updateFn = function()
                 ,
                 -- edgeObjects = length <= signalSpacing and {} or pipe.new
                 -- * func.seqMap({0, nbTracks - 1}, function(n) return
-                --     func.seqMap({1, #limitsTr * 2 - 2}, function(i) return
+                --     func.seqMap({0, #limitsTr * 2 - 1}, function(i) return
                 --         func.map(signalPattern(n + 1, i + 1), function(p)
                 --             local isLeft, pos = table.unpack(p)
                 --             return {
