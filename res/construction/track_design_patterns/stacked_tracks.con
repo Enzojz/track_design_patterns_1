@@ -122,7 +122,12 @@ local function params()
             values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
             defaultIndex = 0
         },
-        
+        {
+            key = "extTrack",
+            name = _("Exterior Track"),
+            values = func.seqMap({0, 6}, tostring),
+            defaultIndex = 0
+        },
         {
             key = "streetSign",
             name = sp,
@@ -166,6 +171,12 @@ local function params()
             values = { _("No"), _("Yes"), _("Electric") },
             yearFrom = 1875,
             yearTo = 0
+        },
+        {
+            key = "intersection",
+            name = _("Intersection"),
+            values = { _("No"), _("Yes") },
+            defaultIndex = 0,
         },
         {
             key = "slopeSignA",
@@ -376,7 +387,24 @@ local updateFn = function()
         local slopeA = slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001
         local slopeB = params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001
         
-        local offsets = tdp.buildCoors(nbTracks, nbTracks)
+        local offsets = pipe.new 
+        * tdp.buildCoors(nbTracks, nbTracks) 
+        * function(o)
+            return params.extTrack == 0 and o
+            or 
+            func.with(o, {
+                tracks = pipe.new * o.tracks +
+                pipe.new 
+                * func.seq(1, params.extTrack)
+                * pipe.map(
+                    params.openSide == 0 
+                    and function(e) return o.tracks[#o.tracks] + e * station.trackWidth + 0.5 end
+                    or function(e) return o.tracks[1] - e * station.trackWidth - 0.5 end
+                )
+            })
+        end
+        
+        
 
         local wallHeight = func.seq(9, 15)[params.wallHeight + 1]
         local connPos = params.connPos + 1
@@ -385,6 +413,10 @@ local updateFn = function()
         
         local guidelineTr, fzTr, limitsTr = guideline(radius, length, signalSpacing, wallHeight, connPos, slopeA, slopeB, 0)
         local guidelineSt, fzSt, limitsSt = guideline(radiusSt, length, length, wallHeight, connPos, slopeA, slopeB, wallHeight)
+        local guidelineStO = guidelineSt + (params.openSide == 0 
+            and ((offsets.walls[1] + streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)) 
+            or ((offsets.walls[2] - streetWidth * 0.5) * (radiusSt > 0 and -1 or 1))
+        )
 
         local guidelines = offsets.tracks
             * (radius < 0 and pipe.noop() or pipe.rev())
@@ -393,6 +425,7 @@ local updateFn = function()
                 return limitsTr
                     * pipe.map(function(l) return func.with(g:withLimits(l), {offset = o}) end)
             end)
+        local guidelinesR = guidelines * (radius < 0 and pipe.range(1, #guidelines - params.extTrack) or pipe.range(params.extTrack + 1, #guidelines))
         
         local arcs = guidelines
             * pipe.map(pipe.map(tdp.generateArc))
@@ -422,15 +455,11 @@ local updateFn = function()
             * pipe.map(station.mergeEdges)
 
         
-            
+        local hasIntersection = params.intersection == 1
         local street = {
             edge = pipe.new 
                 * tdp.generateArc(
-                    guidelineSt:extendLimits(-wallHeight - 0.5) 
-                    + (params.openSide == 0 
-                        and ((offsets.walls[1] + streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)) 
-                        or ((offsets.walls[2] - streetWidth * 0.5) * (radiusSt > 0 and -1 or 1))
-                    ),
+                    guidelineStO:extendLimits(-wallHeight - 0.5),
                     wallHeight
                 ) 
                 * pipe.map(
@@ -442,8 +471,21 @@ local updateFn = function()
                             c[4]:withZ(fzSt(c.rad[2]).s)
                         }
                     end
-                ),
-            snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true}
+                ) * 
+                function(a)
+                    return a + 
+                    (
+                        hasIntersection and
+                        pipe.exec * function()
+                            local pt = guidelineStO:pt(guidelineStO.mid)
+                            local pt = pt:withZ(fzSt(guidelineStO.mid).z)
+                            local vec = (guidelineStO.o - pt):normalized():withZ(0) * streetWidth * (radiusSt > 0 and 1 or -1) * (params.openSide == 0 and 1 or -1) 
+                            return {{pt, (pt + vec), vec, vec}}
+                        end
+                         or {}
+                    )
+                end,
+            snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true} + (hasIntersection and {{false, true}} or {})
         }
 
         local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
@@ -553,7 +595,7 @@ local updateFn = function()
             / {params.openSide == 0 and makeFenceA(fenceGuidelines[radiusSt < 0 and 1 or 2]) or makeFenceB(fenceGuidelines[radiusSt > 0 and 1 or 2])}
             * pipe.flatten()
             * pipe.map(pipe.flatten())
-            + (pipe.new * guidelines * pipe.map(pipe.map(makeRoof)) * pipe.flatten() * pipe.flatten())
+            + (pipe.new * guidelinesR * pipe.map(pipe.map(makeRoof)) * pipe.flatten() * pipe.flatten())
         
         local terrainGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
