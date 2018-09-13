@@ -287,43 +287,55 @@ local function guideline(radius, length, signalSpacing, wallHeight, connPos, slo
         end
     
     local function signalGrouping(result, leftLength)
-        return leftLength <= 0 and result or signalGrouping(result / {pos = (length - leftLength), pct = 0.5}, leftLength - signalSpacing)
+        return leftLength <= 0 
+        and result
+        * pipe.interlace({"f", "t"})
+        * pipe.map(function(p) return {pos = p.t, ipos = (p.f + p.t) * 0.5 } end)
+        / {pos = 0}
+        * pipe.sort(function(a, b) return a.pos < b.pos end)
+        or signalGrouping(result / (length - leftLength), leftLength - signalSpacing)
     end
     
-    local limits = (signalGrouping(pipe.new, length) +
-        (
-            {
-                {
-                    {pos = length, pct = 0.5}
-                },
-                {
-                    {pos = 5, pct = 0.5},
-                    {pos = length - wallHeight * 1.5, pct = 0.5},
-                    {pos = length, pct = 0.1}
-                },
-                {
-                    {pos = wallHeight * 1.5, pct = 0.9},
-                    {pos = length - 5, pct = 0.5},
-                    {pos = length, pct = 0.5}
-                }
-            }
-        )[connPos])
-        * pipe.filter(function(p)
-            return ({
-                true,
-                p.pos == 0 or p.pos == length or (p.pos >= 5 and p.pos <= length - wallHeight * 1.5),
-                p.pos == 0 or p.pos == length or (p.pos >= wallHeight * 1.5 and p.pos <= length - 5)  
+    local limits = signalGrouping(pipe.new, length)
+        * pipe.filter(({
+                function(p) return true end,
+                function(p) return p.pos == 0 or (p.pos > 5 and p.pos < length - wallHeight * 1.5) end,
+                function(p) return p.pos == 0 or (p.pos > wallHeight * 1.5 and p.pos < length - 5) end
+            })[connPos])
+        * pipe.map(({
+                pipe.noop(),
+                function(p) return p.ipos and p.ipos <= 5 and func.with(p, {ipos = (p.pos + 5) * 0.5}) or p end,
+                function(p) return p.ipos and p.ipos <= wallHeight * 1.5 and func.with(p, {ipos = (p.pos + wallHeight * 1.5) * 0.5}) or p end
             })[connPos]
-        end)
+        )
+        * (
+            {
+                function(r) return 
+                    r / {pos = length, ipos = 0.5 * (r[#r].pos + length)}
+                end,
+                function(r) return
+                    r
+                    / {pos = 5, ipos = 2.5}
+                    / {pos = length - wallHeight * 1.5, ipos = (r[#r].pos + length - wallHeight * 1.5) * 0.5}
+                    / {pos = length, ipos = length - wallHeight * 1.45}
+                end,
+                function(r) return 
+                    r
+                    / {pos = wallHeight * 1.5, ipos = wallHeight * 1.45}
+                    / {pos = length - 5, ipos = (r[#r].pos + length - 5) * 0.5}
+                    / {pos = length, ipos = length - 2.5}
+                end
+            }
+        )[connPos]
         * pipe.sort(function(a, b) return a.pos < b.pos end)
-        * pipe.map(function(p) return {pos = p.pos / length, pct = p.pct} end)
+        * pipe.map(function(p) return {pos = p.pos / length, ipos = p.ipos and p.ipos / length or nil} end)
         * pipe.interlace({"f", "t"})
         * pipe.filter(function(r) return r.f.pos ~= r.t.pos end)
         * pipe.map(function(r)
             return
             {
                 inf = initRad + r.f.pos * dRad,
-                mid = initRad + (r.f.pos * (1 - r.t.pct) + r.t.pos * r.t.pct) * dRad,
+                mid = initRad + r.t.ipos * dRad,
                 sup = initRad + r.t.pos * dRad
             }
         end)
@@ -598,22 +610,30 @@ local updateFn = function()
                 / (pipe.new * arcs * station.prepareEdges * trackBuilder.nonAligned())
                 / (pipe.new * {street} * station.prepareEdges * streetBuilder.nonAligned())
                 ,
-                -- edgeObjects = length <= signalSpacing and {} or pipe.new
-                -- * func.seqMap({0, nbTracks - 1}, function(n) return
-                --     func.seqMap({0, #limitsTr * 2 - 1}, function(i) return
-                --         func.map(signalPattern(n + 1, i + 1), function(p)
-                --             local isLeft, pos = table.unpack(p)
-                --             return {
-                --                 edge = n * #limitsTr * 2 + i,
-                --                 param = pos,
-                --                 left = isLeft,
-                --                 model = params.signalSpacing == 1 and "railroad/signal_mb.mdl" or "railroad/signal_new_block.mdl"
-                --             }
-                --         end)
-                --     end)
-                -- end)
-                -- * pipe.flatten()
-                -- * pipe.flatten(),
+                edgeObjects = length <= signalSpacing and {} or pipe.new
+                * func.seqMap({0, nbTracks - 1}, function(n) return
+                    func.seqMap(
+                        (
+                            {
+                                {0, #limitsTr * 2 - 1},
+                                {1, #limitsTr * 2 - 5},
+                                {2, #limitsTr * 2 - 5}
+                            }
+                        )[connPos]
+                        , function(i) return
+                        func.map(signalPattern(n + 1, i + 1), function(p)
+                            local isLeft, pos = table.unpack(p)
+                            return {
+                                edge = n * (#limitsTr * 2 - (connPos == 0 and 0 or 1)) + i,
+                                param = pos,
+                                left = isLeft,
+                                model = params.signalSpacing == 1 and "railroad/signal_mb.mdl" or "railroad/signal_new_block.mdl"
+                            }
+                        end)
+                    end)
+                end)
+                * pipe.flatten()
+                * pipe.flatten() * dump,
                 models = walls * pipe.flatten(),
 		        colliders = {
                     {
