@@ -371,7 +371,7 @@ local updateFn = function()
         local length = params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000
         length = length > 0 and length or 1
         
-        local signalSpacing = ({length * 0.5, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
+        local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
         
         local slopeA = slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001
         local slopeB = params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001
@@ -458,7 +458,7 @@ local updateFn = function()
             function(n, i) return n > nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
             function(_, i) return leftSignal(i) end,
             function(_, i) return rightSignal(i) end,
-            function(_, i) return i == 1 and {{true, signalOffset}} or (i == #limits * 2 and {{false, 1 - signalOffset}} or {}) end
+            function(_, i) return {{true, signalOffset}, {false, 1 - signalOffset}} end
         })[params.signalPattern + 1];
 
         local retriveWall = function(ls) return ls[params.wallType + 1] end
@@ -603,6 +603,7 @@ local updateFn = function()
             )
             }
         end
+        dump({length, signalSpacing})
         return
             pipe.new
             * {
@@ -616,8 +617,8 @@ local updateFn = function()
                         (
                             {
                                 {0, #limitsTr * 2 - 1},
-                                {1, #limitsTr * 2 - 5},
-                                {2, #limitsTr * 2 - 5}
+                                {1, #limitsTr * 2 - 4},
+                                {2, #limitsTr * 2 - 4}
                             }
                         )[connPos]
                         , function(i) return
@@ -633,7 +634,7 @@ local updateFn = function()
                     end)
                 end)
                 * pipe.flatten()
-                * pipe.flatten() * dump,
+                * pipe.flatten(),
                 models = walls * pipe.flatten(),
 		        colliders = {
                     {
