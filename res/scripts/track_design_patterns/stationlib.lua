@@ -349,6 +349,9 @@ stationlib.setMirror = function(isMirror)
     end
 end
 
+stationlib.finalizePoly = function(poly)
+    return func.map(((poly[2] - poly[1]):cross(poly[3] - poly[2]).z > 0 and pipe.noop() or pipe.rev())(poly), coor.vec2Tuple)
+end
 
 
 function stationlib.projectPolys(mDepth)

@@ -7,6 +7,8 @@ local tdp = {}
 
 local pi = math.pi
 local abs = math.abs
+local ceil = math.ceil
+local floor = math.floor
 
 tdp.infi = 1e8
 
@@ -275,6 +277,27 @@ tdp.makeFn = function(rot180)
                 makeModel(coordsGen(tdp.normalizeRad(obj.mid), tdp.normalizeRad(obj.sup)))
             }
         end
+    end
+end
+
+local retriveBiLatCoords = function(nSeg, l, ...)
+    local rst = pipe.new * {l, ...}
+    local lscale = l:length() / (nSeg * length)
+    return table.unpack(
+        func.map(rst,
+            function(s) return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
+                function(n) return s:pt(s.inf + n * ((s.sup - s.inf) / nSeg)) end)
+            end)
+)
+end
+
+local retriveNSeg = function(length, l, ...)
+    return (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / length), l, ...
+end
+
+local biLatCoords = function(length)
+    return function(...)
+        return retriveBiLatCoords(retriveNSeg(length, ...), ...)
     end
 end
 

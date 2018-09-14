@@ -9,7 +9,6 @@ local streetEdge = require "track_design_patterns/streetedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
-local dump = require "datadumper"
 
 local abs = math.abs
 local pi = math.pi
@@ -24,25 +23,26 @@ local wallList = {
     "track_design_patterns/concrete_wall",
     "track_design_patterns/brick_wall",
     "track_design_patterns/arch_wall",
-    "track_design_patterns/track_multi_lod_0_sound_insulation_10m"
 }
 local colList = {
     "track_design_patterns/concrete_col",
-    "track_design_patterns/brick_wall",
-    "track_design_patterns/arch_wall",
-    "track_design_patterns/track_multi_sound_insulation_10m"
+    "track_design_patterns/brick_col",
+    "track_design_patterns/brick_col",
 }
-local wallLengthList = {5, 5, 5, 10}
-local colLengthList = {10, 5, 5, 10}
-local wallHeightList = {15, 15, 15, 8}
-local wallWidthList = {1, 1, 1, 0.4}
-local wallTransList = {
-    function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.transZ((h > 0 and h or 0) - 10) end,
-    function(h) return coor.transZ((h > 8 and 8 or abs(h)) - 5.1) end
+local fenceList = {
+    "track_design_patterns/concrete_fence",
+    "track_design_patterns/brick_fence",
+    "track_design_patterns/brick_fence"
 }
-
+local roofList = {
+    "track_design_patterns/roof_closed",
+    "track_design_patterns/brick_roof_closed",
+    "track_design_patterns/brick_roof_closed"
+}
+local wallLengthList = {5, 5, 5}
+local colLengthList = {10, 5, 5}
+local wallHeightList = {15, 15, 15}
+local wallWidthList = {1, 1, 1}
 
 local streetConfig = {
     old = {
@@ -149,7 +149,7 @@ local function params()
         {
             key = "streetUsage",
             name = "",
-            values = {_("Street"), _("Route")},
+            values = {_("Street"), _("Route"), _("No Street")},
             defaultIndex = 0
         },
         {
@@ -242,20 +242,20 @@ local function params()
         {
             key = "openSide",
             name = _("Exposed Side"),
-            values = {"A", "B"},
+            values = {"A", "B", "A+B"},
             defaultIndex = 0,
         },
         {
             key = "wallType",
             name = _("Type"),
-            values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
+            values = {_("Concrete"), _("Stone brick"), _("Arch")},
             defaultIndex = 0
         },
         {
             key = "height",
             name = _("Altitude Adjustment") .. "(m)",
-            values = func.seqMap({-10, 15}, tostring),
-            defaultIndex = 10
+            values = func.seqMap({-15, 5}, tostring),
+            defaultIndex = 5
         }
     }
 end
@@ -371,6 +371,7 @@ local updateFn = function()
         local streetGroup = streetConfig[params.streetEra == 0 and "old" or "modern"][params.streetUsage == 0 and "street" or "country"]
         local streetType = streetGroup.type[params.streetType + 1]
         local streetWidth = streetGroup.width[params.streetType + 1]
+        local withoutSt = params.streetUsage == 2
 
         local tramType = ({"NO", "YES", "ELECTRIC"})[params.tramTrack + 1]
         local trackBuilder = trackEdge.builder(catenary, trackType)
@@ -388,11 +389,12 @@ local updateFn = function()
         local slopeB = params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001
         
         local offsets = tdp.buildCoors(nbTracks, 2)
+        local openSide = params.openSide + 1
     
         local extOffsets = pipe.new 
             * func.seq(1, params.extTrack)
             * pipe.map(
-                params.openSide == 0 
+                openSide == 1 
                 and function(e) return offsets.tracks[#offsets.tracks] + e * station.trackWidth + (nbTracks == 1 and 0 or 0.5) end
                 or function(e) return offsets.tracks[1] - e * station.trackWidth - (nbTracks == 1 and 0 or 0.5) end
             )
@@ -405,13 +407,14 @@ local updateFn = function()
         
         local guidelineTr, fzTr, limitsTr = guideline(radius, length, signalSpacing, wallHeight, connPos, slopeA, slopeB, 0)
         local guidelineSt, fzSt, limitsSt = guideline(radiusSt, length, length, wallHeight, connPos, slopeA, slopeB, wallHeight)
-        local guidelineStO = guidelineSt + (params.openSide == 0 
-            and ((offsets.walls[1] + streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)) 
-            or ((offsets.walls[#offsets.walls] - streetWidth * 0.5) * (radiusSt > 0 and -1 or 1))
-        )
+        local guidelineStO = guidelineSt +
+        ({
+            ((offsets.walls[1] + streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)),
+            ((offsets.walls[#offsets.walls] - streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)),
+            0
+        })[openSide]
 
         local guidelines = offsets.tracks
-            * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
                 local g = (guidelineTr + o)
                 return limitsTr
@@ -419,7 +422,6 @@ local updateFn = function()
             end)
         
         local guidelinesExt = extOffsets
-        * (radius < 0 and pipe.noop() or pipe.rev())
         * pipe.map(function(o)
             local g = (guidelineTr + o)
             return limitsTr
@@ -481,7 +483,7 @@ local updateFn = function()
             * pipe.map(station.mergeEdges)
 
         
-        local hasIntersection = params.intersection == 1
+        local hasIntersection = params.intersection == 1 and openSide ~= 3
         local street = {
             edge = pipe.new 
                 * tdp.generateArc(
@@ -497,22 +499,22 @@ local updateFn = function()
                             c[4]:withZ(fzSt(c.rad[2]).s)
                         }
                     end
-                ) * 
-                function(a)
-                    return a + 
-                    (
-                        hasIntersection and
-                        pipe.exec * function()
-                            local pt = guidelineStO:pt(guidelineStO.mid)
-                            local pt = pt:withZ(fzSt(guidelineStO.mid).z)
-                            local vec = (guidelineStO.o - pt):normalized():withZ(0) * streetWidth * (radiusSt > 0 and 1 or -1) * (params.openSide == 0 and 1 or -1) 
-                            return {{pt, pt + vec * 0.75, vec, vec}, {pt + vec * 0.75, pt + vec, vec, vec}}
-                        end
-                         or {}
-                    )
-                end,
-            snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true} + (hasIntersection and {{false, false}, {false, true}} or {})
+                ),
+            snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true}
         }
+
+        local streetInter = hasIntersection
+        and {
+                edge = 
+                    pipe.exec * function()
+                        local pt = guidelineStO:pt(guidelineStO.mid)
+                        local pt = pt:withZ(fzSt(guidelineStO.mid).z)
+                        local vec = (guidelineStO.o - pt):normalized():withZ(0) * streetWidth * (radiusSt > 0 and 1 or -1) * (openSide == 1 and 1 or -1) 
+                        return {{pt, pt + vec * 0.75, vec, vec}, {pt + vec * 0.75, pt + vec, vec, vec}}
+                    end,
+                snap = pipe.new / {false, false} / {false, true}
+            }
+        or { edge = pipe.new, snap = pipe.new }
 
         local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
         
@@ -536,16 +538,20 @@ local updateFn = function()
             * pipe.map(function(o) return guidelineTr + o end)
 
         local fenceGuidelines = 
-        pipe.new * 
-            (params.openSide == 0 
-            and {
-                offsets.walls[1], 
-                offsets.walls[1] + streetWidth
-            } 
-            or {
-                offsets.walls[#offsets.walls] - streetWidth, 
-                offsets.walls[#offsets.walls]
-            })
+        pipe.new 
+        / {
+            offsets.walls[1], 
+            offsets.walls[1] + streetWidth
+        }
+        / {
+            offsets.walls[#offsets.walls] - streetWidth, 
+            offsets.walls[#offsets.walls]
+        }
+        / {
+            - 0.5 * streetWidth, 
+            0.5 * streetWidth
+        }
+        * pipe.select(openSide)
         * (radiusSt < 0 and pipe.noop() or pipe.rev())
         * pipe.map(function(o) return guidelineSt + (radiusSt > 0 and -o or o) end)
                 
@@ -563,52 +569,40 @@ local updateFn = function()
         end
         
         local makeWallA = tdp.makeFn(false)(
-            retriveWall(params.openSide == 0 and colList or wallList),
+            retriveWall(({colList, wallList, colList})[openSide]),
             tdp.fitModel,
-            mPlace(
-                fzTr,
-                retriveWall(wallTransList)(wallHeight)
-            ),
-            retriveWall(wallWidthList),
-            retriveWall(params.openSide == 0 and colLengthList or wallLengthList)
+            mPlace(fzTr, coor.transZ(wallHeight - 10)),
+            1,
+            retriveWall(({colLengthList, wallLengthList, colLengthList})[openSide])
         )
         
         local makeWallB = tdp.makeFn(true)(
-            retriveWall(params.openSide == 1 and colList or wallList),
+            retriveWall(({wallList, colList, colList})[openSide]),
             tdp.fitModel,
-            mPlace(
-                fzTr,
-                retriveWall(wallTransList)(wallHeight)
-            ),
-            retriveWall(wallWidthList),
-            retriveWall(params.openSide == 1 and colLengthList or wallLengthList)
+            mPlace(fzTr, coor.transZ(wallHeight - 10)),
+            1,
+            retriveWall(({wallLengthList, colLengthList, colLengthList})[openSide])
         )
 
         
         local makeFenceA = tdp.makeFn(true)(
-            "track_design_patterns/concrete_fence",
+            retriveWall(fenceList),
             tdp.fitModel,
-            mPlace(
-                fzSt,
-                retriveWall(wallTransList)(0)
-            ),
-            retriveWall(wallWidthList), 
+            mPlace(fzSt,coor.I()),
+            1, 
             5
         )
         
         local makeFenceB = tdp.makeFn(false)(
-            "track_design_patterns/concrete_fence",
+            retriveWall(fenceList),
             tdp.fitModel,
-            mPlace(
-                fzSt,
-                retriveWall(wallTransList)(0)
-            ),
-            retriveWall(wallWidthList),
+            mPlace(fzSt,coor.I()),
+            1,
             5
         )
         
         local makeRoof = tdp.makeFn(false)(
-            "track_design_patterns/roof_closed",
+            retriveWall(roofList),
             tdp.fitModel,
             mPlace(fzTr, coor.transZ(wallHeight)),
             5,
@@ -616,19 +610,23 @@ local updateFn = function()
         )
 
         local walls = pipe.new
-            / (
-                ({
-                    nbTracks == 1 and {} or wallGuidelines * pipe.range(1, #wallGuidelines - 1) * pipe.map(makeWallA),
-                    {makeWallA(wallGuidelines[1])}
-                })[params.openSide + 1]
-            )
-            /(
-                ({
-                    {makeWallB(wallGuidelines[#wallGuidelines])},
-                    nbTracks == 1 and {} or wallGuidelines * pipe.range(2, #wallGuidelines) * pipe.map(makeWallB)
-                })[params.openSide + 1]
-            )
-            / {params.openSide == 0 and makeFenceA(fenceGuidelines[radiusSt < 0 and 1 or 2]) or makeFenceB(fenceGuidelines[radiusSt > 0 and 1 or 2])}
+            / {
+                (nbTracks == 0 and pipe.new or wallGuidelines * pipe.range(1, #wallGuidelines - 1) * pipe.map(makeWallA))
+                / makeWallB(wallGuidelines[#wallGuidelines])
+                / (withoutSt and {} or makeFenceA(fenceGuidelines[radiusSt < 0 and 1 or 2]))
+            }
+            / {
+                (nbTracks == 0 and pipe.new or wallGuidelines * pipe.range(2, #wallGuidelines) * pipe.map(makeWallB))
+                / makeWallA(wallGuidelines[1])
+                / makeFenceB(fenceGuidelines[radiusSt > 0 and 1 or 2])
+            }
+            / {
+                wallGuidelines * pipe.range(1, #wallGuidelines - 1) * pipe.map(makeWallA)
+                / makeWallB(wallGuidelines[#wallGuidelines])
+                / (withoutSt and {} or makeFenceA(fenceGuidelines[radiusSt < 0 and 1 or 2]))
+                / (withoutSt and {} or makeFenceB(fenceGuidelines[radiusSt > 0 and 1 or 2]))
+            }
+            * pipe.select(openSide)
             * pipe.flatten()
             * pipe.map(pipe.flatten())
             + (pipe.new * guidelines * pipe.map(pipe.map(makeRoof)) * pipe.flatten() * pipe.flatten())
@@ -653,33 +651,16 @@ local updateFn = function()
                 * station.projectPolys(coor.I())
                 or {}
             end
-            local polyGen = function(l, e, g)
-                return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
-            end
             
             return function(guidelines)
                 return {
-                    slot = polyGen(
-                        {},
-                        {},
-                        {g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end}
-                    ),
-                    equal = polyGen(
-                        {},
-                        refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end},
-                        {}
-                    ),
-                    less = polyGen(
-                        {g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end},
-                        refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end} or {},
-                        {g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z + wallHeight)(p) end}
-                    ),
-                    greater = polyGen(
-                        {g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z - wHeight)(p) end},
-                        refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end} or {},
-                        refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end} or 
-                        {g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z - wHeight + wallHeight)(p) end}
-                )
+                    slot = f({g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end}),
+                    equal = 
+                    -- tdp.generatePolyArc({guidelineStO, guidelineStO}, "inf", "sup")(-1, 0.5 * streetWidth)
+                    -- * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
+                    -- * station.projectPolys(coor.I())
+                    -- 
+                    f({g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end})
                 }
             end
         end
@@ -690,7 +671,7 @@ local updateFn = function()
                 edgeLists = pipe.new 
                 / (pipe.new * arcs * station.prepareEdges * trackBuilder.nonAligned())
                 / (pipe.new * arcsExt * station.prepareEdges * trackBuilder.normal())
-                / (pipe.new * {street} * station.prepareEdges * streetBuilder.nonAligned())
+                / (not withoutSt and pipe.new * {street, streetInter} * station.prepareEdges * streetBuilder.nonAligned() or nil)
                 ,
                 edgeObjects = length <= signalSpacing and {} or pipe.new
                 * func.seqMap({0, nbTracks + extTrack - 1}, function(n) return
@@ -731,7 +712,7 @@ local updateFn = function()
                     )
                 )({less = 1.5})
             }
-            * station.setHeight(func.seq(-10, 15)[params.height + 1])
+            * station.setHeight(func.seq(-15, 5)[params.height + 1])
     end
 end
 
