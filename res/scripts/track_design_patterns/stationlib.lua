@@ -356,7 +356,7 @@ end
 
 function stationlib.projectPolys(mDepth)
     return function(...)
-        return pipe.new * func.flatten({...}) * pipe.map(pipe.map(mDepth)) * pipe.map(pipe.map(coor.vec2Tuple))
+        return pipe.new * func.flatten({...}) * pipe.map(pipe.map(mDepth)) * pipe.map(stationlib.finalizePoly)
     end
 end
 

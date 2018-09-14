@@ -251,14 +251,15 @@ end
 
 tdp.makeFn = function(rot180)
     local m = rot180 and coor.flipX() * coor.flipY() or coor.I()
-    return function(model, fitModel, mPlace, w, l)
+    return function(model, fitModel, mPlace, w, l, eW)
         local l = l or 5
+        local eW = eW or w
         local fitTopLeft = fitModel(w, l)(false)(true, true)
         local fitBottomRight = fitModel(w, l)(false)(false, false)
         return function(obj)
             local coordsGen = arc.coords(obj, l)
-            local inner = obj + (- w * 0.5)
-            local outer = obj + (w * 0.5)
+            local inner = obj + (- eW * 0.5)
+            local outer = obj + (eW * 0.5)
             local function makeModel(seq, scale)
                 return pipe.new * func.map(func.interlace(seq, {"i", "s"}), 
                 function(rad)
@@ -280,54 +281,36 @@ tdp.makeFn = function(rot180)
     end
 end
 
-local retriveBiLatCoords = function(nSeg, l, ...)
-    local rst = pipe.new * {l, ...}
-    local lscale = l:length() / (nSeg * length)
-    return table.unpack(
-        func.map(rst,
-            function(s) return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
-                function(n) return s:pt(s.inf + n * ((s.sup - s.inf) / nSeg)) end)
-            end)
-)
-end
 
-local retriveNSeg = function(length, l, ...)
-    return (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / length), l, ...
-end
-
-local biLatCoords = function(length)
-    return function(...)
-        return retriveBiLatCoords(retriveNSeg(length, ...), ...)
+local biLatCoords = function(length, from, to)
+    return function(l, ...)
+        local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(abs((l[from] - l[to]) * l.r))
+        local rst = pipe.new * {l, ...}
+        local radF, radT = tdp.normalizeRad(l[from]), tdp.normalizeRad(l[to])
+        local lscale = abs((radF - radT) * l.r) / (nSeg * length)
+        return table.unpack(
+            func.map(rst,
+                function(s) return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
+                    function(n) 
+                        local rad = radF + n * ((radT - radF) / nSeg)
+                        return func.with(s:pt(rad):withZ(0), {rad = rad}) end)
+                end)
+    )
     end
-end
-
-local generatePolyArcEdge = function(group, from, to)
-    return pipe.from(tdp.normalizeRad(group[from]), tdp.normalizeRad(group[to]))
-        * arc.coords(group, 5)
-        * pipe.map(function(rad) return func.with(group:pt(rad), {z = 0, rad = rad}) end)
 end
 
 tdp.generatePolyArc = function(groups, from, to)
     local groupI, groupO = (function(ls) return ls[1], ls[#ls] end)(func.sort(groups, function(p, q) return p.r < q.r end))
     return function(extLon, extLat)
-            
-            local groupL, groupR = table.unpack(
-                pipe.new
-                / (groupO + extLat):extendLimits(extLon)
-                / (groupI + (-extLat)):extendLimits(extLon)
-                * pipe.sort(function(p, q) return p:pt(p.mid).x < q:pt(p.mid).x end)
-            )
-            return generatePolyArcEdge(groupR, from, to)
-                * function(ls) return ls * pipe.range(1, #ls - 1)
-                    * pipe.map2(ls * pipe.range(2, #ls),
-                        function(f, t) return
-                            {
-                                f, t,
-                                func.with(groupL:pt(t.rad), {z = 0, rad = t.rad}),
-                                func.with(groupL:pt(f.rad), {z = 0, rad = f.rad}),
-                            }
-                        end)
-                end
+            local coorO, coorI = biLatCoords(5, from, to)(
+                    (groupO + extLat):extendLimits(extLon), 
+                    (groupI + (-extLat)):extendLimits(extLon)
+                )
+
+            return 
+                pipe.new *
+                pipe.mapn(func.interlace(coorO, {"i", "s"}), func.interlace(coorI, {"i", "s"}))
+                (function(o, i) return { o.i, o.s, i.s, i.i } end)
     end
 end
 

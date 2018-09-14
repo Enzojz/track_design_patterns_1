@@ -608,6 +608,15 @@ local updateFn = function()
             5,
             5
         )
+        
+        local makeStRoof = tdp.makeFn(false)(
+            retriveWall(roofList),
+            tdp.fitModel,
+            mPlace(fzTr, coor.transZ(wallHeight)),
+            5,
+            5,
+            streetWidth
+        )
 
         local walls = pipe.new
             / {
@@ -629,7 +638,8 @@ local updateFn = function()
             * pipe.select(openSide)
             * pipe.flatten()
             * pipe.map(pipe.flatten())
-            + (pipe.new * guidelines * pipe.map(pipe.map(makeRoof)) * pipe.flatten() * pipe.flatten())
+            + (pipe.new * offsets.tracks * pipe.map(function(o) return guidelineTr + o end) * pipe.map(makeRoof) * pipe.flatten())
+            + (withoutSt and {} or makeStRoof(guidelineStO:extendLimits(-0.5)))
         
         local terrainGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
@@ -655,12 +665,15 @@ local updateFn = function()
             return function(guidelines)
                 return {
                     slot = f({g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end}),
-                    equal = 
+                    less = tdp.generatePolyArc({guidelineStO, guidelineStO}, "inf", "sup")(0, 0.5 * streetWidth)
+                        * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
+                        * station.projectPolys(coor.I()),
+                    -- equal = 
                     -- tdp.generatePolyArc({guidelineStO, guidelineStO}, "inf", "sup")(-1, 0.5 * streetWidth)
                     -- * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
                     -- * station.projectPolys(coor.I())
                     -- 
-                    f({g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end})
+                    -- f({g = guidelines.outer, fz = function(p) return coor.transZ(fzTr(p.rad).z)(p) end})
                 }
             end
         end
@@ -710,7 +723,7 @@ local updateFn = function()
                     table.unpack(
                         terrainGuidelines * pipe.map(polyGen(wallHeight, wallHeight, retriveWall(wallHeightList)))
                     )
-                )({less = 1.5})
+                )({})
             }
             * station.setHeight(func.seq(-15, 5)[params.height + 1])
     end
