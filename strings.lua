@@ -76,6 +76,10 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.4
+    * Added "Road stacking over tracks" pattern
+    * Added some extra spacing in Crossover pattern to adapt some other station mods
+    * Fixed crash bug when noise barrier is choosen
     1.3
     * Reimplementation of models and model positioning algorithm to have non-overlapping, non-flickering walls or bricks
     1.2
@@ -326,7 +330,26 @@ function data()
             ["Open"] = "开放",
             ["Closed"] = "关闭",
             ["Turnout #"] = "道岔号数",
-            ["↕↕↕↕"] = "双向自闭"
+            ["↕↕↕↕"] = "双向自闭",
+            ["Number of inside tracks"] = "结构内轨道数量",
+            ["Number of outside tracks"] = "结构外轨道数量",
+            ["Connection End"] = "连接点",
+            ["Near"] = "光标附近",
+            ["Far"] = "远端",
+            ["Track Radius"] = "轨道半径",
+            ["Road Radius"] = "马路半径",
+            ["Tunnel Height"] = "隧道高度",
+            ["Exposed Side"] = "开放侧",
+            ["Era of Road"] = "马路年代",
+            ["Ancien"] = "古代",
+            ["Modern"] = "现代",
+            ["Street"] = "街道",
+            ["Route"] = "公路",
+            ["No Street"] = "无",
+            ["Road Type"] = "马路类型",
+            ["Intersection"] = "岔路口",
+            ["Road stacking over tracks"] = "悬于轨道之上的马路",
+            ["One road stacking over one or many tracks with fix radious and signaling spacing."] = "一组或一条带有固定半径和信号机间距的轨道结构，结构上层是马路"
         },
         de = {
             ["name"] = "Track Design Patterns",

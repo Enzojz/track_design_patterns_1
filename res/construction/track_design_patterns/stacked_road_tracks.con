@@ -175,7 +175,7 @@ local function params()
         },
         {
             key = "streetEra",
-            name = sp .. "\n" .. _("Road Age"),
+            name = sp .. "\n" .. _("Era of Road"),
             values = {_("Ancien"), _("Modern")},
             defaultIndex = 1
         },

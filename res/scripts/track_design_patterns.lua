@@ -281,7 +281,6 @@ tdp.makeFn = function(rot180)
     end
 end
 
-
 local biLatCoords = function(length, from, to)
     return function(l, ...)
         local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(abs((from(l) - to(l)) * l.r))
@@ -303,7 +302,7 @@ end
 tdp.generatePolyArc = function(groups, from, to)
     local groupI, groupO = groups[1], groups[#groups]
     return function(extLon, extLat)
-            local coorO, coorI = biLatCoords(5, function(s) return s[from] end, function(s) return s[to] end)(
+            local coorO, coorI = biLatCoords(5, function(s) return tdp.normalizeRad(s[from]) end, function(s) return tdp.normalizeRad(s[to]) end)(
                     (groupO + extLat):extendLimits(extLon), 
                     (groupI + (-extLat)):extendLimits(extLon)
                 )
