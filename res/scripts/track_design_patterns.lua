@@ -284,13 +284,14 @@ end
 
 local biLatCoords = function(length, from, to)
     return function(l, ...)
-        local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(abs((l[from] - l[to]) * l.r))
+        local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(abs((from(l) - to(l)) * l.r))
         local rst = pipe.new * {l, ...}
-        local radF, radT = tdp.normalizeRad(l[from]), tdp.normalizeRad(l[to])
-        local lscale = abs((radF - radT) * l.r) / (nSeg * length)
         return table.unpack(
             func.map(rst,
-                function(s) return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
+                function(s) 
+                    local radF, radT = from(s), to(s)
+                    local lscale = (radF - radT) * s.r / (nSeg * length)
+                    return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
                     function(n) 
                         local rad = radF + n * ((radT - radF) / nSeg)
                         return func.with(s:pt(rad):withZ(0), {rad = rad}) end)
@@ -300,7 +301,22 @@ local biLatCoords = function(length, from, to)
 end
 
 tdp.generatePolyArc = function(groups, from, to)
-    local groupI, groupO = (function(ls) return ls[1], ls[#ls] end)(func.sort(groups, function(p, q) return p.r < q.r end))
+    local groupI, groupO = groups[1], groups[#groups]
+    return function(extLon, extLat)
+            local coorO, coorI = biLatCoords(5, function(s) return s[from] end, function(s) return s[to] end)(
+                    (groupO + extLat):extendLimits(extLon), 
+                    (groupI + (-extLat)):extendLimits(extLon)
+                )
+
+            return 
+                pipe.new *
+                pipe.mapn(func.interlace(coorO, {"i", "s"}), func.interlace(coorI, {"i", "s"}))
+                (function(o, i) return { o.i, o.s, i.s, i.i } end)
+    end
+end
+
+tdp.generatePolyArcFn = function(groups, from, to)
+    local groupI, groupO = groups[1], groups[#groups]
     return function(extLon, extLat)
             local coorO, coorI = biLatCoords(5, from, to)(
                     (groupO + extLat):extendLimits(extLon), 
@@ -313,13 +329,6 @@ tdp.generatePolyArc = function(groups, from, to)
                 (function(o, i) return { o.i, o.s, i.s, i.i } end)
     end
 end
-
-function tdp.regularizeRad(rad)
-    return rad > pi
-        and tdp.regularizeRad(rad - pi)
-        or (rad < -pi and tdp.regularizeRad(rad + pi) or rad)
-end
-
 
 function tdp.polyGen(slope)
     return function(wallHeight, refHeight, guidelines, wHeight, fr, to)

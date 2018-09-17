@@ -342,7 +342,7 @@ function data()
         availability = {
             yearFrom = 1860
         },
-        order = 27219,
+        order = 27229,
         skipCollision = false,
         autoRemovable = false,
         params = params(),

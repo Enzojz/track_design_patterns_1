@@ -261,7 +261,7 @@ function data()
         },
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
-        order = 27220,
+        order = 27230,
         -- skipCollision = false,
         -- autoRemovable = false,
         params = params(),

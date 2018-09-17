@@ -17,6 +17,7 @@ local descEN = [[
     4. Switch
     5. Crossover
     6. Track ladders
+    7. Road stacking over tracks
     
     === Brief introduction to patterns ===
     
@@ -45,6 +46,13 @@ local descEN = [[
     This pattern is destinated to quickly create diverging part of a depot or something similar.
     You can change the distance between exit tracks to fit into different parts of stations.
     You can add walls to the sides of switches, which is much easier than adding it manually with assets.
+
+    7.Road stacking over tracks
+    This pattern is added from version 1.4, which gives possibilty to build road structure suspended over tracks. Such infrastructure can be seen in Paris, in Zurich and some other cities. 
+    You can choose one side of infrastructure open, or two open sides. When two sides are open, the road is center is aligned to tracks, when only one side is open, one side of the road is aligned to the most outside track of inside track group. You have option to build some parallel tracks outside the structure.
+    Due to a terrain alignment bug from the game, which is never fixed, the construction of this pattern is not very intuitive, you need to toggle between an option called "Connection End" and some manual operation to over come this bug from the game, if not the infrastructures you built will not be connetced and will have buggy look.
+    The game will not build buildings alongside the road built by the infrastructure.
+    For a demo operation see [url=https://youtu.be/AGMmLp0Iho4]this video[/url].
     
     === What's there that can't be done with game itself ===
     Expect the special terrain calculating acting with wall configurations, some other things that can be done with mod are unique to the game.
@@ -54,14 +62,6 @@ local descEN = [[
     4. You can build crossover where the game says impossible to construction in some places.
     5. The walls can be auto placed with all patterns, which is more elegant and quick than manually placing.
     6. The signaling can be placed automatically, so does the emulation of moving block
-    
-    === What's yet there ===
-    I have been working on this mod since about two months, at first I though it would be simple, but soon I got many other ideas to make it more rich.
-    However I expect to start work on my ultimate curved station soon, so the first release of this mod is done though some planned features are not done:
-    1. The superposed road over track (like rue de rome in Paris.) This missing pattern will be added later.
-    2. Signals on switch, crossover and track ladders, I am heisted to add them since it seems not a big problem not to have them
-    3. Double slip and single slips are planned first, however it seems impossible to get it since some related track parameters are totally done by the game itself, and no mod interfaces opened to modder.
-    4. Three way switch is not possible neither
     
     === What may be buggy for some players ===
     The automatically generated signals are not indicated in the map, and not visible in the preview before the construction. They are can only visible after construction, and moving blocks doesn't have anyway graphically way to present them.
@@ -108,6 +108,7 @@ local descZH = [[
     4. 道岔
     5. 渡线
     6. 梯线
+    7. 悬于轨道之上的马路
         
     === 轨道模式的简单介绍 ===
     
@@ -137,6 +138,13 @@ local descZH = [[
     你可以修改分叉轨道之间的距离去匹配车站的不同部分
     可以你在梯线的两侧添加墙，相比游戏中在同样的位置操作要简便很多。
     
+    7.悬于轨道之上的马路
+    1.4版本中加入了这个模式，它可以让你在轨道上方建设马路。这样的建筑在巴黎以及苏黎世等城市中可以见到。
+    你可以让建造物的一侧呈开放状态，或者两侧呈开放状态。当两侧都是开放的时候，马路的中轴线和轨道对齐，当只有一侧开放时，马路的外侧和轨道的外侧对齐。你可以选择建设一些平行于建造物的轨道方便你的布局。
+    因为游戏一个悬而未决的Bug，这个模式的操作并不是非常地符合直觉。你需要切换“连接点”选项以及一些手动操作完成建造，否则建造出的轨道不是连通的，外观上也很丑陋。
+    点击[url=https://youtu.be/AGMmLp0Iho4]这里[/url]观看演示视频.
+    
+    
     === 本MOD可以，而游戏本身尚未实现的功能 ===
     除了特殊的地面计算功能，这个MOD还可以实现一些游戏尚未做到的功能.
     1. 最小半径可达50米（真实世界最小的准轨弯道是巴黎巴士底地铁站一个38米半径的弯道）
@@ -146,20 +154,16 @@ local descZH = [[
     5. 在各种模式中可以自动建造侧墙，比游戏中快速并且更美观。
     6. 可以自动放置信号机，并且可以模式移动闭塞。
     
-    === 还没实现的 ===
-    在这个MOD上我花费了大约两个月的时间，起初我认为这个MOD应该比较简单，但是在制作过程中我有了很多其他的想法导致这个MOD变得越来越丰富。
-    然而我打算开始“终极弯道车站”MOD这个项目，因此本MOD第一版在没有包含以下特性的情况下发布了：
-    1. 类似巴黎罗马路那样的悬空在轨道上方的马路，这个模式将在以后的版本中添加进来。
-    2. 我犹豫是否要增加道岔的防护信号机的选项，因为我觉得没有这个选项问题也不是很大。
-    3. 起初复式交分和单式交分是打算做在这个MOD里面的，然而游戏中有一些内部计算的参数导致这个模式没法实现。
-    4. 因为同样的原因三开道岔也没法实现。
-    
     === 一些BUG ===
     自动生成的信号机不会在游戏中显示出图标
     信号机防止在每个长度区段的1/2位置中，比如，如果你选择了每500米安装一个信号机，那么你会在250米和750米的位置看到这个信号机，我这样做是因为这样的情况下计算最简便。如果轨道比信号机间隔短的话，那么信号机就不会被安装。
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.4
+    * 增加了“悬于轨道之上的马路”模式
+    * 在渡线模式中增加了一些适配其他MOD车站的轨道间距
+    * 修复了选择隔音墙后游戏崩溃的Bug
     1.3
     * 重写了模型和模型放置算法，消除了前后墙或者砖的模型之间的重叠和闪烁现象
     1.2
