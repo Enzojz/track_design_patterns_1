@@ -734,7 +734,7 @@ local updateFn = function()
                 / (not withoutSt and pipe.new * {street, streetInter} * station.prepareEdges * streetBuilder.nonAligned() or nil)
                 ,
                 edgeObjects = length <= signalSpacing and {} or pipe.new
-                * func.seqMap({0, nbTracks + extTrack - 1}, function(n) return
+                * func.seqMap({0, nbTracks + params.extTrack - 1}, function(n) return
                     func.seqMap(
                         (
                             {
@@ -765,8 +765,7 @@ local updateFn = function()
                         type="BOX" 
                       } 
                 },
-                terrainAlignmentLists =
-                 station.mergePoly(polyGen)({})
+                terrainAlignmentLists = station.mergePoly(polyGen)({})
             }
             * station.setHeight(func.seq(-15, 5)[params.height + 1])
     end
