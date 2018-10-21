@@ -7,6 +7,7 @@ local arc = require "track_design_patterns/coorarc"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
+local math = math
 local pi = math.pi
 local abs = math.abs
 
@@ -241,7 +242,7 @@ local updateFn = function(models)
             * pipe.map(function(o) return guideline.surface + (o) * (radius.surface > 0 and -1 or 1) end)
         
         local polys = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, 2)
-        local polysTracks = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(1, 1)
+        local polysTracks = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(1, radius.surface > 0 and -1 or 1)
             * pipe.map(pipe.map(function(p) return coor.transZ(fz.surface(p.rad).z - 0.01)(p) end))
         
         local mPlace = function(fitModel, arcL, arcR, rad1, rad2)

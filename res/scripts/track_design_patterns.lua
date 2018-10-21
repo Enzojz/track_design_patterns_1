@@ -5,6 +5,7 @@ local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = {}
 
+local math = math
 local pi = math.pi
 local abs = math.abs
 local ceil = math.ceil

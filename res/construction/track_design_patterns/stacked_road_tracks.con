@@ -10,6 +10,7 @@ local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
 
+local math = math
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
@@ -115,7 +116,7 @@ local function params()
         },
         {
             key = "connPos",
-            name = sp .. "\n".. _("Connection End"),
+            name = sp .. "\n" .. _("Connection End"),
             values = {_("None"), _("Near"), _("Far")},
             defaultIndex = 1
         },
@@ -194,21 +195,21 @@ local function params()
         {
             key = "tramTrack",
             name = _("Tram track"),
-            values = { _("No"), _("Yes") },
+            values = {_("No"), _("Yes")},
             yearFrom = 0,
             yearTo = 1875
         },
         {
             key = "tramTrack",
             name = _("Tram track"),
-            values = { _("No"), _("Yes"), _("Electric") },
+            values = {_("No"), _("Yes"), _("Electric")},
             yearFrom = 1875,
             yearTo = 0
         },
         {
             key = "intersection",
             name = _("Intersection"),
-            values = { _("No"), _("Yes") },
+            values = {_("No"), _("Yes")},
             defaultIndex = 0,
         },
         {
@@ -270,7 +271,7 @@ local function defaultParams(param)
     
     param.trackType = param.trackType or 0
     param.catenary = param.catenary or 0
-
+    
     func.forEach(
         func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
         function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
@@ -301,45 +302,45 @@ local function guideline(radius, length, signalSpacing, wallHeight, connPos, slo
         end
     
     local function signalGrouping(result, leftLength)
-        return leftLength <= 0 
-        and result
-        * pipe.interlace({"f", "t"})
-        * pipe.map(function(p) return {pos = p.t, ipos = (p.f + p.t) * 0.5 } end)
-        / {pos = 0}
-        * pipe.sort(function(a, b) return a.pos < b.pos end)
-        or signalGrouping(result / (length - leftLength), leftLength - signalSpacing)
+        return leftLength <= 0
+            and result
+            * pipe.interlace({"f", "t"})
+            * pipe.map(function(p) return {pos = p.t, ipos = (p.f + p.t) * 0.5} end)
+            / {pos = 0}
+            * pipe.sort(function(a, b) return a.pos < b.pos end)
+            or signalGrouping(result / (length - leftLength), leftLength - signalSpacing)
     end
     
     local limits = signalGrouping(pipe.new, length)
         * pipe.filter(({
-                function(p) return true end,
-                function(p) return p.pos == 0 or (p.pos > 5 and p.pos < length - wallHeight * 1.5) end,
-                function(p) return p.pos == 0 or (p.pos > wallHeight * 1.5 and p.pos < length - 5) end
-            })[connPos])
+            function(p) return true end,
+            function(p) return p.pos == 0 or (p.pos > 5 and p.pos < length - wallHeight * 1.5) end,
+            function(p) return p.pos == 0 or (p.pos > wallHeight * 1.5 and p.pos < length - 5) end
+        })[connPos])
         * pipe.map(({
-                pipe.noop(),
-                function(p) return p.ipos and p.ipos <= 5 and func.with(p, {ipos = (p.pos + 5) * 0.5}) or p end,
-                function(p) return p.ipos and p.ipos <= wallHeight * 1.5 and func.with(p, {ipos = (p.pos + wallHeight * 1.5) * 0.5}) or p end
-            })[connPos]
+            pipe.noop(),
+            function(p) return p.ipos and p.ipos <= 5 and func.with(p, {ipos = (p.pos + 5) * 0.5}) or p end,
+            function(p) return p.ipos and p.ipos <= wallHeight * 1.5 and func.with(p, {ipos = (p.pos + wallHeight * 1.5) * 0.5}) or p end
+        })[connPos]
         )
         * (
-            {
-                function(r) return 
-                    r / {pos = length, ipos = 0.5 * (r[#r].pos + length)}
-                end,
-                function(r) return
-                    r
-                    / {pos = 5, ipos = 2.5}
-                    / {pos = length - wallHeight * 1.5, ipos = (r[#r].pos + length - wallHeight * 1.5) * 0.5}
-                    / {pos = length, ipos = length - wallHeight * 1.45}
-                end,
-                function(r) return 
-                    r
-                    / {pos = wallHeight * 1.5, ipos = wallHeight * 1.45}
-                    / {pos = length - 5, ipos = (r[#r].pos + length - 5) * 0.5}
-                    / {pos = length, ipos = length - 2.5}
-                end
-            }
+        {
+            function(r) return
+                r / {pos = length, ipos = 0.5 * (r[#r].pos + length)}
+            end,
+            function(r) return
+                r
+                / {pos = 5, ipos = 2.5}
+                / {pos = length - wallHeight * 1.5, ipos = (r[#r].pos + length - wallHeight * 1.5) * 0.5}
+                / {pos = length, ipos = length - wallHeight * 1.45}
+            end,
+            function(r) return
+                r
+                / {pos = wallHeight * 1.5, ipos = wallHeight * 1.45}
+                / {pos = length - 5, ipos = (r[#r].pos + length - 5) * 0.5}
+                / {pos = length, ipos = length - 2.5}
+            end
+        }
         )[connPos]
         * pipe.sort(function(a, b) return a.pos < b.pos end)
         * pipe.map(function(p) return {pos = p.pos / length, ipos = p.ipos and p.ipos / length or nil} end)
@@ -347,11 +348,11 @@ local function guideline(radius, length, signalSpacing, wallHeight, connPos, slo
         * pipe.filter(function(r) return r.f.pos ~= r.t.pos end)
         * pipe.map(function(r)
             return
-            {
-                inf = initRad + r.f.pos * dRad,
-                mid = initRad + r.t.ipos * dRad,
-                sup = initRad + r.t.pos * dRad
-            }
+                {
+                    inf = initRad + r.f.pos * dRad,
+                    mid = initRad + r.t.ipos * dRad,
+                    sup = initRad + r.t.pos * dRad
+                }
         end)
     
     local guideline = arc.byOR(coor.xyz(radius, 0, 0), abs(radius)):withLimits({
@@ -370,12 +371,12 @@ local updateFn = function()
         
         local trackType = tdp.trackList[params.trackType + 1]
         local catenary = params.catenary == 1
-
+        
         local streetGroup = streetConfig[params.streetEra == 0 and "old" or "modern"][params.streetUsage == 0 and "street" or "country"]
         local streetType = streetGroup.type[params.streetType + 1]
         local streetWidth = streetGroup.width[params.streetType + 1]
         local withoutSt = params.streetUsage == 2
-
+        
         local tramType = ({"NO", "YES", "ELECTRIC"})[params.tramTrack + 1]
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local streetBuilder = streetEdge.builder(tramType, streetType)
@@ -384,7 +385,7 @@ local updateFn = function()
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local radiusSt = params.streetRadius == 0 and radius or (rList[params.streetRadius] * 1000) * (params.streetSign == 0 and 1 or -1)
         local length = params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000
-        length = length > 0 and length or 1
+        length = length > 25 and length or 25
         
         local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
         
@@ -393,16 +394,15 @@ local updateFn = function()
         
         local offsets = tdp.buildCoors(nbTracks, 2)
         local openSide = params.openSide + 1
-    
-        local extOffsets = pipe.new 
+        
+        local extOffsets = pipe.new
             * func.seq(1, params.extTrack)
             * pipe.map(
-                ((openSide == 1 and radius > 0) or (openSide == 2 and radius < 0)) 
+            ((openSide == 1 and radius > 0) or (openSide == 2 and radius < 0))
                 and function(e) return offsets.tracks[#offsets.tracks] + e * station.trackWidth + (nbTracks == 1 and 0 or 0.5) end
                 or function(e) return offsets.tracks[1] - e * station.trackWidth + (nbTracks == 1 and 0 or 0.5) end
-            )
+        )
         
-
         local wallHeight = tunnelHeight[params.wallHeight + 1]
         local connPos = params.connPos + 1
         
@@ -411,12 +411,12 @@ local updateFn = function()
         local guidelineTr, fzTr, limitsTr = guideline(radius, length, signalSpacing, wallHeight, connPos, slopeA, slopeB, 0)
         local guidelineSt, fzSt, limitsSt = guideline(radiusSt, length, length, wallHeight, connPos, slopeA, slopeB, wallHeight)
         local guidelineStO = guidelineSt +
-        ({
+            ({
             ((offsets.walls[1] + streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)),
-            ((offsets.walls[#offsets.walls] - streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)),
-            0
-        })[openSide]
-
+                ((offsets.walls[#offsets.walls] - streetWidth * 0.5) * (radiusSt > 0 and -1 or 1)),
+                0
+            })[openSide]
+        
         local guidelines = offsets.tracks
             * pipe.map(function(o)
                 local g = (guidelineTr + o)
@@ -425,16 +425,16 @@ local updateFn = function()
             end)
         
         local guidelinesExt = extOffsets
-        * pipe.map(function(o)
-            local g = (guidelineTr + o)
-            return limitsTr
-                * pipe.map(function(l) return func.with(g:withLimits(l), {offset = o}) end)
-        end)
+            * pipe.map(function(o)
+                local g = (guidelineTr + o)
+                return limitsTr
+                    * pipe.map(function(l) return func.with(g:withLimits(l), {offset = o}) end)
+            end)
         
         local arcs = guidelines
             * pipe.map(pipe.map(tdp.generateArc))
             * pipe.map(pipe.map(pipe.range(1, 2)))
-            * pipe.map(pipe.map(pipe.map(function(c) return pipe.new 
+            * pipe.map(pipe.map(pipe.map(function(c) return pipe.new
                 / c[1]:withZ(fzTr(c.rad[1]).z)
                 / c[2]:withZ(fzTr(c.rad[2]).z)
                 / c[3]:withZ(fzTr(c.rad[1]).s)
@@ -442,18 +442,18 @@ local updateFn = function()
             end)))
             * pipe.map(function(segs) return pipe.new * segs
                 * pipe.mapi(function(e, i) return {
-                    edge =  
-                        pipe.exec * ({
-                            function() return pipe.new * e end,
-                            function() return pipe.new * (i == 1 and {e[1]} or e) end,
-                            function() return pipe.new * (i == #segs and {e[2]} or e) end,
-                        })[connPos],
+                    edge =
+                    pipe.exec * ({
+                        function() return pipe.new * e end,
+                        function() return pipe.new * (i == 1 and {e[1]} or e) end,
+                        function() return pipe.new * (i == #segs and {e[2]} or e) end,
+                    })[connPos],
                     snap =
-                        pipe.exec * ({
-                            function() return pipe.new * {{i == 1, false}, {false, i == #segs}} end,
-                            function() return pipe.new * (i == 1 and {{true, true}} or {{i == 2, false}, {false, i == #segs}}) end,
-                            function() return pipe.new * (i == #segs and {{true, true}} or {{i == 1, false}, {false, i == #segs - 1}}) end,
-                        })[connPos]
+                    pipe.exec * ({
+                        function() return pipe.new * {{i == 1, false}, {false, i == #segs}} end,
+                        function() return pipe.new * (i == 1 and {{true, true}} or {{i == 2, false}, {false, i == #segs}}) end,
+                        function() return pipe.new * (i == #segs and {{true, true}} or {{i == 1, false}, {false, i == #segs - 1}}) end,
+                    })[connPos]
                 } end)
             end)
             * pipe.map(station.mergeEdges)
@@ -461,7 +461,7 @@ local updateFn = function()
         local arcsExt = guidelinesExt
             * pipe.map(pipe.map(tdp.generateArc))
             * pipe.map(pipe.map(pipe.range(1, 2)))
-            * pipe.map(pipe.map(pipe.map(function(c) return pipe.new 
+            * pipe.map(pipe.map(pipe.map(function(c) return pipe.new
                 / c[1]:withZ(fzTr(c.rad[1]).z)
                 / c[2]:withZ(fzTr(c.rad[2]).z)
                 / c[3]:withZ(fzTr(c.rad[1]).s)
@@ -469,56 +469,56 @@ local updateFn = function()
             end)))
             * pipe.map(function(segs) return pipe.new * segs
                 * pipe.mapi(function(e, i) return {
-                    edge =  
-                        pipe.exec * ({
-                            function() return pipe.new * e end,
-                            function() return pipe.new * (i == 1 and {e[1]} or e) end,
-                            function() return pipe.new * (i == #segs and {e[2]} or e) end,
-                        })[connPos],
+                    edge =
+                    pipe.exec * ({
+                        function() return pipe.new * e end,
+                        function() return pipe.new * (i == 1 and {e[1]} or e) end,
+                        function() return pipe.new * (i == #segs and {e[2]} or e) end,
+                    })[connPos],
                     snap =
-                        pipe.exec * ({
-                            function() return pipe.new * {{i == 1, false}, {false, i == #segs}} end,
-                            function() return pipe.new * (i == 1 and {{true, true}} or {{i == 2, false}, {false, i == #segs}}) end,
-                            function() return pipe.new * (i == #segs and {{true, true}} or {{i == 1, false}, {false, i == #segs - 1}}) end,
-                        })[connPos]
+                    pipe.exec * ({
+                        function() return pipe.new * {{i == 1, false}, {false, i == #segs}} end,
+                        function() return pipe.new * (i == 1 and {{true, true}} or {{i == 2, false}, {false, i == #segs}}) end,
+                        function() return pipe.new * (i == #segs and {{true, true}} or {{i == 1, false}, {false, i == #segs - 1}}) end,
+                    })[connPos]
                 } end)
             end)
             * pipe.map(station.mergeEdges)
-
+        
         
         local hasIntersection = params.intersection == 1 and openSide ~= 3
         local street = {
-            edge = pipe.new 
-                * tdp.generateArc(
-                    guidelineStO:extendLimits(-wallHeight - 0.5),
-                    wallHeight
-                ) 
-                * pipe.map(
-                    function(c)
-                        return {
-                            c[1]:withZ(fzSt(c.rad[1]).z),
-                            c[2]:withZ(fzSt(c.rad[2]).z),
-                            c[3]:withZ(fzSt(c.rad[1]).s),
-                            c[4]:withZ(fzSt(c.rad[2]).s)
-                        }
-                    end
-                ),
+            edge = pipe.new
+            * tdp.generateArc(
+                guidelineStO:extendLimits(-wallHeight - 0.5),
+                wallHeight
+            )
+            * pipe.map(
+                function(c)
+                    return {
+                        c[1]:withZ(fzSt(c.rad[1]).z),
+                        c[2]:withZ(fzSt(c.rad[2]).z),
+                        c[3]:withZ(fzSt(c.rad[1]).s),
+                        c[4]:withZ(fzSt(c.rad[2]).s)
+                    }
+                end
+            ),
             snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true}
         }
-
+        
         local streetInter = hasIntersection
-        and {
-                edge = 
-                    pipe.exec * function()
-                        local pt = guidelineStO:pt(guidelineStO.mid)
-                        local pt = pt:withZ(fzSt(guidelineStO.mid).z)
-                        local vec = (guidelineStO.o - pt):normalized():withZ(0) * streetWidth * (radiusSt > 0 and 1 or -1) * (openSide == 1 and 1 or -1) 
-                        return {{pt, pt + vec * 0.75, vec, vec}, {pt + vec * 0.75, pt + vec, vec, vec}}
-                    end,
+            and {
+                edge =
+                pipe.exec * function()
+                    local pt = guidelineStO:pt(guidelineStO.mid)
+                    local pt = pt:withZ(fzSt(guidelineStO.mid).z)
+                    local vec = (guidelineStO.o - pt):normalized():withZ(0) * streetWidth * (radiusSt > 0 and 1 or -1) * (openSide == 1 and 1 or -1)
+                    return {{pt, pt + vec * 0.75, vec, vec}, {pt + vec * 0.75, pt + vec, vec, vec}}
+                end,
                 snap = pipe.new / {false, false} / {false, true}
             }
-        or { edge = pipe.new, snap = pipe.new }
-
+            or {edge = pipe.new, snap = pipe.new}
+        
         local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
         
         local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
@@ -533,31 +533,31 @@ local updateFn = function()
             function(_, i) return rightSignal(i) end,
             function(_, i) return {{true, signalOffset}, {false, 1 - signalOffset}} end
         })[params.signalPattern + 1];
-
+        
         local retriveWall = function(ls) return ls[params.wallType + 1] end
         
         local wallGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o) return guidelineTr + o end)
-
-        local fenceGuidelines = 
-        pipe.new 
-        / {
-            offsets.walls[1], 
-            offsets.walls[1] + streetWidth
-        }
-        / {
-            offsets.walls[#offsets.walls] - streetWidth, 
-            offsets.walls[#offsets.walls]
-        }
-        / {
-            - 0.5 * streetWidth, 
-            0.5 * streetWidth
-        }
-        * pipe.select(openSide)
-        * (radiusSt < 0 and pipe.noop() or pipe.rev())
-        * pipe.map(function(o) return guidelineSt + (radiusSt > 0 and -o or o) end)
-                
+        
+        local fenceGuidelines =
+            pipe.new
+            / {
+                offsets.walls[1],
+                offsets.walls[1] + streetWidth
+            }
+            / {
+                offsets.walls[#offsets.walls] - streetWidth,
+                offsets.walls[#offsets.walls]
+            }
+            / {
+                -0.5 * streetWidth,
+                0.5 * streetWidth
+            }
+            * pipe.select(openSide)
+            * (radiusSt < 0 and pipe.noop() or pipe.rev())
+            * pipe.map(function(o) return guidelineSt + (radiusSt > 0 and -o or o) end)
+        
         local function mPlace(fz, mZ)
             return function(fitModel, arcL, arcR, rad1, rad2)
                 local z1, z2 = fz(rad1).z, fz(rad2).z
@@ -578,7 +578,6 @@ local updateFn = function()
             1,
             retriveWall(({colLengthList, wallLengthList, colLengthList})[openSide])
         )
-        
         local makeWallB = tdp.makeFn(true)(
             retriveWall(({wallList, colList, colList})[openSide]),
             tdp.fitModel,
@@ -586,24 +585,21 @@ local updateFn = function()
             1,
             retriveWall(({wallLengthList, colLengthList, colLengthList})[openSide])
         )
-
         
         local makeFenceA = tdp.makeFn(true)(
             retriveWall(fenceList),
             tdp.fitModel,
-            mPlace(fzSt,coor.I()),
-            1, 
-            5
-        )
-        
-        local makeFenceB = tdp.makeFn(false)(
-            retriveWall(fenceList),
-            tdp.fitModel,
-            mPlace(fzSt,coor.I()),
+            mPlace(fzSt, coor.I()),
             1,
             5
         )
-        
+        local makeFenceB = tdp.makeFn(false)(
+            retriveWall(fenceList),
+            tdp.fitModel,
+            mPlace(fzSt, coor.I()),
+            1,
+            5
+        )
         local makeRoof = tdp.makeFn(false)(
             retriveWall(roofList),
             tdp.fitModel,
@@ -611,7 +607,6 @@ local updateFn = function()
             5,
             5
         )
-        
         local makeStRoof = tdp.makeFn(false)(
             retriveWall(roofList),
             tdp.fitModel,
@@ -620,15 +615,14 @@ local updateFn = function()
             5,
             streetWidth
         )
-
         local walls = pipe.new
             / {
-                (nbTracks == 1 and pipe.new or wallGuidelines * pipe.range(1, #wallGuidelines - 1) * pipe.map(makeWallA))
+            (nbTracks == 1 and pipe.new or wallGuidelines * pipe.range(1, #wallGuidelines - 1) * pipe.map(makeWallA))
                 / makeWallB(wallGuidelines[#wallGuidelines])
                 / (withoutSt and {} or makeFenceA(fenceGuidelines[radiusSt < 0 and 1 or 2]))
             }
             / {
-                (nbTracks == 1 and pipe.new or wallGuidelines * pipe.range(2, #wallGuidelines) * pipe.map(makeWallB))
+            (nbTracks == 1 and pipe.new or wallGuidelines * pipe.range(2, #wallGuidelines) * pipe.map(makeWallB))
                 / makeWallA(wallGuidelines[1])
                 / makeFenceB(fenceGuidelines[radiusSt > 0 and 1 or 2])
             }
@@ -649,34 +643,34 @@ local updateFn = function()
             local c = f:dot(t)
             return acos(c)
         end
-
-        local polyGen = 
-        {
-            greater = 
+        
+        local polyGen =
+            {
+                greater =
                 tdp.generatePolyArc({wallGuidelines[1], wallGuidelines[#wallGuidelines]}, "inf", "sup")(0, -1)
                 * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z)(p) end))
                 * station.projectPolys(coor.I()),
-            slot = 
+                slot =
                 tdp.generatePolyArc({wallGuidelines[1], wallGuidelines[#wallGuidelines]}, "inf", "sup")(0, -1)
                 * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z)(p) end))
                 * station.projectPolys(coor.I())
                 +
                 (openSide == 2 and {} or tdp.generatePolyArc({
-                    wallGuidelines[1], 
+                    wallGuidelines[1],
                     wallGuidelines[1] + (radius > 0 and 1 or -1) * wallHeight * 2}, "inf", "sup")(0, -1)
-                    * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
-                    * station.projectPolys(coor.I())
+                * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
+                * station.projectPolys(coor.I())
                 )
                 +
                 (openSide == 1 and {} or tdp.generatePolyArc({
-                    wallGuidelines[#wallGuidelines], 
+                    wallGuidelines[#wallGuidelines],
                     wallGuidelines[#wallGuidelines] + (radius > 0 and -1 or 1) * wallHeight * 2}, "inf", "sup")(0, -1)
-                    * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
-                    * station.projectPolys(coor.I())
+                * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
+                * station.projectPolys(coor.I())
                 )
                 ,
-            platform = 
-                (withoutSt or openSide == 3 or streetWidth < abs(offsets.walls[#offsets.walls] - offsets.walls[1])) and {} or 
+                platform =
+                (withoutSt or openSide == 3 or streetWidth < abs(offsets.walls[#offsets.walls] - offsets.walls[1])) and {} or
                 pipe.exec * function()
                     local guidelineSt = ({
                         guidelineStO + ((radiusSt > 0 and -0.5 or 0.5) * streetWidth),
@@ -687,48 +681,48 @@ local updateFn = function()
                         guidelineStO + ((radiusSt > 0 and -0.5 or 0.5) * (streetWidth + wallHeight * 4)),
                         guidelineStO + ((radiusSt > 0 and 0.5 or -0.5) * (streetWidth + wallHeight * 4))
                     })[openSide]
-
+                    
                     local guidelineWall = ({
                         wallGuidelines[#wallGuidelines] + (radius < 0 and 1 or -1),
                         wallGuidelines[1] + (radius < 0 and -1 or 1)
                     })[openSide]
-                 
+                    
                     local findIntersection = function(guidelineSt)
                         return pipe.new * (guidelineSt - guidelineWall)
-                        * pipe.filter(function(i)
-                            local xo = (i - guidelineSt.o):withZ(0):normalized()
-                            local io = (guidelineSt:pt(guidelineSt.inf) - guidelineSt.o):withZ(0):normalized()
-                            local so = (guidelineSt:pt(guidelineSt.sup) - guidelineSt.o):withZ(0):normalized()
-                            return abs(abs(dRad(so, io)) - abs(dRad(xo, io)) - abs(dRad(so, xo))) < 1e-8
-                        end)
+                            * pipe.filter(function(i)
+                                local xo = (i - guidelineSt.o):withZ(0):normalized()
+                                local io = (guidelineSt:pt(guidelineSt.inf) - guidelineSt.o):withZ(0):normalized()
+                                local so = (guidelineSt:pt(guidelineSt.sup) - guidelineSt.o):withZ(0):normalized()
+                                return abs(abs(dRad(so, io)) - abs(dRad(xo, io)) - abs(dRad(so, xo))) < 1e-8
+                            end)
                     end
-
+                    
                     local intersectionSt = findIntersection(guidelineSt)
-
-                    return 
+                    
+                    return
                         tdp.generatePolyArcFn({guidelineSt, guidelineWall},
                             function(s) return s.inf end,
                             function(s) return #intersectionSt > 0 and s:rad(intersectionSt[1]) or s.sup end)(0, 0)
                         * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
                         * station.projectPolys(coor.I())
                         +
-                        tdp.generatePolyArcFn({guidelineSt, guidelineStExt}, 
+                        tdp.generatePolyArcFn({guidelineSt, guidelineStExt},
                             function(s) return s.inf end,
                             function(s) return #intersectionSt > 0 and s:rad(intersectionSt[1]) or s.sup end)(0, 0)
                         * pipe.map(pipe.map2({wallHeight, wallHeight, 0, 0}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
                         * station.projectPolys(coor.I())
                 end
                 ,
-            less = withoutSt and {} or
+                less = withoutSt and {} or
                 tdp.generatePolyArc({guidelineStO, guidelineStO}, "inf", "sup")(0, 0.5 * streetWidth)
                 * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
                 * station.projectPolys(coor.I())
-        }
+            }
         
         return
             pipe.new
             * {
-                edgeLists = pipe.new 
+                edgeLists = pipe.new
                 / (pipe.new * arcs * station.prepareEdges * trackBuilder.nonAligned())
                 / (pipe.new * arcsExt * station.prepareEdges * trackBuilder.normal())
                 / (not withoutSt and pipe.new * {street, streetInter} * station.prepareEdges * streetBuilder.nonAligned() or nil)
@@ -737,33 +731,33 @@ local updateFn = function()
                 * func.seqMap({0, nbTracks + params.extTrack - 1}, function(n) return
                     func.seqMap(
                         (
-                            {
-                                {0, #limitsTr * 2 - 1},
-                                {1, #limitsTr * 2 - 4},
-                                {2, #limitsTr * 2 - 4}
-                            }
+                        {
+                            {0, #limitsTr * 2 - 1},
+                            {1, #limitsTr * 2 - 4},
+                            {2, #limitsTr * 2 - 4}
+                        }
                         )[connPos]
                         , function(i) return
-                        func.map(signalPattern(n + 1, i + 1), function(p)
-                            local isLeft, pos = table.unpack(p)
-                            return {
-                                edge = n * (#limitsTr * 2 - (connPos == 0 and 0 or 1)) + i,
-                                param = pos,
-                                left = isLeft,
-                                model = params.signalSpacing == 1 and "railroad/signal_mb.mdl" or "railroad/signal_new_block.mdl"
-                            }
+                            func.map(signalPattern(n + 1, i + 1), function(p)
+                                local isLeft, pos = table.unpack(p)
+                                return {
+                                    edge = n * (#limitsTr * 2 - (connPos == 0 and 0 or 1)) + i,
+                                    param = pos,
+                                    left = isLeft,
+                                    model = params.signalSpacing == 1 and "railroad/signal_mb.mdl" or "railroad/signal_new_block.mdl"
+                                }
+                            end)
                         end)
-                    end)
                 end)
                 * pipe.flatten()
                 * pipe.flatten(),
                 models = walls * pipe.flatten(),
-		        colliders = {
+                colliders = {
                     {
-                        params={ halfExtents={ 0, 0, 0 } },
-                        transf={ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
-                        type="BOX" 
-                      } 
+                        params = {halfExtents = {0, 0, 0}},
+                        transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+                        type = "BOX"
+                    }
                 },
                 terrainAlignmentLists = station.mergePoly(polyGen)({})
             }
