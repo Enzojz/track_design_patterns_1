@@ -331,19 +331,13 @@ local updateFn = function(models)
                 )()
                 ,
                 groundFaces = (pipe.new
-                + polys
-                * pipe.mapFlatten(function(p)
+                + polys * pipe.mapFlatten(function(p)
                     return {
                         {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}},
                         {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast"}}}
                     }
                 end)
-                + slotPolys
-                * pipe.mapFlatten(function(p)
-                    return {
-                        {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "hole"}}},
-                    }
-                end)
+                + slotPolys * pipe.map(function(p) return  {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "hole"}}} end)
                 + {
                     {
                         face = station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0)),

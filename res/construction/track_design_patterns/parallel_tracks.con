@@ -362,16 +362,21 @@ local updateFn = function()
         
         local terrainGuidelines = offsets.walls
             * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o)
-                local ref = guideline + o
-                local extra = function(w) return ref + (o > 0 and w or -w) end
-                return
-                    {
-                        ref = ref,
-                        outer = extra(wallOffset + 1),
-                        inner = extra(wallOffset - 1)
-                    }
-            end)
+            * pipe.map2(
+                offsets.tracks
+                * (radius < 0 and pipe.noop() or pipe.rev())
+                * function(o) return {o[#o], o[1]} end,
+                function(o, t)
+                    local ref = guideline + o
+                    local extra = function(w) return ref + (o > 0 and w or -w) end
+                    return
+                        {
+                            ref = ref,
+                            outer = extra(wallOffset + 0.25),
+                            inner = extra(wallOffset - 0.25),
+                            limit = guideline + t
+                        }
+                end)
         
         local polyGen = function(wallHeight, refHeight, guidelines, wHeight)
             local f = function(s) return s.g and
@@ -385,11 +390,6 @@ local updateFn = function()
             end
             
             return {
-                slot = polyGen(
-                    {},
-                    {},
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end}
-                ),
                 equal = polyGen(
                     {},
                     refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
@@ -407,6 +407,23 @@ local updateFn = function()
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight + wallHeight)(p) end}
             )
             }
+        end
+
+        local slotGen = function(wallHeight, guidelines)
+            local f = function(s) return s.g and
+                tdp.generatePolyArc({s.g, s.l}, "inf", "sup")(0, 0)
+                * station.projectPolys(coor.I())
+                or {}
+            end
+            local polyGen = function(l, e, g)
+                return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
+            end
+            
+            return polyGen(
+                    {},
+                    {},
+                    {g = guidelines.outer, l = guidelines.limit}
+                )
         end
         
         return
@@ -433,7 +450,13 @@ local updateFn = function()
                 terrainAlignmentLists = station.mergePoly(
                     polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
                     polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
-                )({less = 1.5})
+                )({less = 1.5}),
+                groundFaces = 
+                pipe.new 
+                / slotGen(wallHeight.A, terrainGuidelines[1])
+                / slotGen(wallHeight.B, terrainGuidelines[2])
+                * pipe.flatten()
+                * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end

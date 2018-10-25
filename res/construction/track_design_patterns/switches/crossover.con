@@ -264,41 +264,25 @@ local updateFn = function()
                 func.seqMap({0, wallOffset}, function(d) return guidelines.l:extendLimits(-0.05) + (-d + 0.2455 + wallOffsets.l) end),
                 func.seqMap({0, wallOffset}, function(d) return guidelines.r:extendLimits(-0.05) + (-d + 0.2455 - wallOffsets.r) end)
             }
-        local terrainGuidelines = pipe.exec * function()
-            local sort = function(r) return
-                {
-                    ref = func.map(r, pipe.select("ref")),
-                    outer = func.map(r, pipe.select("outer")),
-                    inner = func.map(r, pipe.select("inner")),
-                }
-            end
-            local gen = function(s)
+
+        local terrainGuidelines = pipe.new
+            * wallGuidelines
+            * pipe.map2({guidelines.l, guidelines.r}, function(g, l)
                 return {
-                    ref = s(0),
-                    outer = s(wallOffset + 1),
-                    inner = s(wallOffset - 1)
+                    ref = {g, l},
+                    inner = {g + 1.5, l},
+                    outer = {g + (-0.25), l},
+                    slot = {g, g + 2.5}
                 }
-            end
-            return {
-                l = pipe.new * {wallOffsets.l, wallOffsets.r}
-                * pipe.map(function(o) local ref = guidelines.l + o return function(w) return ref + (o > 0 and w or -w) end end)
-                * pipe.map(gen)
-                * sort,
-                r = pipe.new * {wallOffsets.l, wallOffsets.r}
-                * pipe.map(function(o) local ref = guidelines.r + (-o) return function(w) return ref + (o < 0 and w or -w) end end)
-                * pipe.map(gen)
-                * sort
-            }
-        end
+            end)
         
         local polyGen = tdp.polyGen(slope)
         
         local polys = station.mergePoly(
-            polyGen(wallHeight.A, wallHeight.B, terrainGuidelines.l, retriveWall.A(wallHeightList), "inf", "sup"),
-            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines.r, retriveWall.B(wallHeightList), "inf", "sup")
+            polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList), "inf", "sup"),
+            polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList), "inf", "sup")
         )({less = 1.5})
-        
-        
+                
         local fz = function(g) return function(rad) return {z = g:pt(rad).y * slope, s = slope} end end
         
         local function mPlace(fz, mZ)
@@ -363,6 +347,12 @@ local updateFn = function()
                 edgeLists = {pipe.new * {edge} * station.prepareEdges * trackBuilder.nonAligned()},
                 terrainAlignmentLists = polys,
                 models = walls * pipe.flatten(),
+                groundFaces = 
+                pipe.new 
+                / tdp.slotGen(wallHeight.A, terrainGuidelines[1], "inf", "sup")
+                / tdp.slotGen(wallHeight.B, terrainGuidelines[2], "inf", "sup")
+                * pipe.flatten()
+                * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end

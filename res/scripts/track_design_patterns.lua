@@ -330,7 +330,25 @@ tdp.generatePolyArcFn = function(groups, from, to)
     end
 end
 
-function tdp.polyGen(slope)
+
+tdp.slotGen = function(wallHeight, guidelines, fr, to)
+    local f = function(s) return s.g and
+        tdp.generatePolyArc(s.g, fr, to)(0, 0)
+        * station.projectPolys(coor.I())
+        or {}
+    end
+    local polyGen = function(l, e, g)
+        return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
+    end
+    
+    return polyGen(
+            {},
+            {},
+            {g = guidelines.slot}
+        )
+end
+
+tdp.polyGen = function(slope)
     return function(wallHeight, refHeight, guidelines, wHeight, fr, to)
         local f = function(s) return s.g and
             tdp.generatePolyArc(s.g, fr, to)(-0.2, 0)
@@ -342,10 +360,15 @@ function tdp.polyGen(slope)
             return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
         end
         return {
+            platform = polyGen(
+                {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end},
+                {},
+                {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end}
+            ),
             slot = polyGen(
                 {},
                 {},
-                {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end}
+                {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end}
             ),
             equal = polyGen(
                 {},
