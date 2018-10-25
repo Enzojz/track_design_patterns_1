@@ -241,8 +241,12 @@ local updateFn = function(models)
         local wallGuidelines = offsets.walls
             * pipe.map(function(o) return guideline.surface + (o) * (radius.surface > 0 and -1 or 1) end)
         
-        local polys = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, 2)
-        local polysTracks = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(1, radius.surface > 0 and -1 or 1)
+        local trackPavingGuidelines = offsets.walls
+        * pipe.map2({1, -1}, function(o, d) return guideline.surface + (o + d) * (radius.surface > 0 and -1 or 1) end)
+
+        local polys = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, radius.surface > 0 and -1 or 1)
+        local slotPolys = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(0, 0)
+        local polysTracks = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, radius.surface > 0 and -0.5 or 0.5)
             * pipe.map(pipe.map(function(p) return coor.transZ(fz.surface(p.rad).z - 0.01)(p) end))
         
         local mPlace = function(fitModel, arcL, arcR, rad1, rad2)
@@ -262,9 +266,28 @@ local updateFn = function(models)
         local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 1)
         local makeRoof =  tdp.makeFn(false)(models.mRoof, tdp.fitModel2D, mPlace, 5)
 
+        local makePaving = tdp.makeFn(false)(
+            "track_design_patterns/paving_base",
+            tdp.fitModel,
+            function(fitModel, arcL, arcR, rad1, rad2)
+                local z1, z2 = fz.surface(rad1).z, fz.surface(rad2).z
+                local size = {
+                    lb = arcL:pt(rad1):withZ(z1),
+                    lt = arcL:pt(rad2):withZ(z2),
+                    rb = arcR:pt(rad1):withZ(z1),
+                    rt = arcR:pt(rad2):withZ(z2)
+                }
+                return fitModel(size)
+            end,
+            1,
+            5
+        )
+
         local walls = pipe.new
             + {pipe.new * makeWallL(wallGuidelines[1] + (radius.surface > 0 and 0.45 or -0.45)) * pipe.flatten()}
             + {pipe.new * makeWallR(wallGuidelines[2] + (radius.surface < 0 and 0.45 or -0.45)) * pipe.flatten()}
+            + {pipe.new * makePaving(trackPavingGuidelines[1] + (radius.surface > 0 and 0.45 or -0.45)) * pipe.flatten()}
+            + {pipe.new * makePaving(trackPavingGuidelines[2] + (radius.surface < 0 and 0.45 or -0.45)) * pipe.flatten()}
             + func.mapi(offsets.tracks, function(o, i)
                 local sizeF = {
                     lt = coor.xyz(o - 3, -1, 0),
@@ -300,10 +323,10 @@ local updateFn = function(models)
                 models = walls * pipe.flatten(),
                 terrainAlignmentLists = station.mergePoly(
                     {
-                        equal = {station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0))},
-                        less = station.projectPolys(coor.I())(polys),
-                        greater = station.projectPolys(coor.I())(polysTracks),
-                        slot = station.projectPolys(coor.I())(polysTracks)
+                        equal = 
+                            station.projectPolys(coor.I())(polys) 
+                            / station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0))
+                            + station.projectPolys(coor.I())(polysTracks) * function(p) return p * pipe.range(1, 4) * pipe.filter(pipe.noop()) end
                     }
                 )()
                 ,
@@ -313,6 +336,12 @@ local updateFn = function(models)
                     return {
                         {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}},
                         {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast"}}}
+                    }
+                end)
+                + slotPolys
+                * pipe.mapFlatten(function(p)
+                    return {
+                        {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "hole"}}},
                     }
                 end)
                 + {
