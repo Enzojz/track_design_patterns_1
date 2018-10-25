@@ -536,14 +536,14 @@ local updateFn = function()
                 terrainAlignmentLists = polys,
                 models = walls * pipe.flatten(),
                 groundFaces = pipe.new 
-                / tdp.slotGen(wallHeight.A, terrainGuidelines[1], "inf", "mid")
-                / tdp.slotGen(wallHeight.B, terrainGuidelines[2], "inf", "mid")
-                / tdp.slotGen(wallHeight.A, terrainGuidelines[3], "mid", "sup")
-                / tdp.slotGen(wallHeight.B, terrainGuidelines[4], "mid", "sup")
-                / tdp.slotGen(wallHeight.A, terrainGuidelines[5], "inf", "mid")
-                / tdp.slotGen(wallHeight.B, terrainGuidelines[6], "inf", "mid")
-                * pipe.flatten()
-                * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
+                    / tdp.slotGen(wallHeight.A, terrainGuidelines[1], "inf", "mid")
+                    / tdp.slotGen(wallHeight.B, terrainGuidelines[2], "inf", "mid")
+                    / tdp.slotGen(wallHeight.A, terrainGuidelines[3], "mid", "sup")
+                    / tdp.slotGen(wallHeight.B, terrainGuidelines[4], "mid", "sup")
+                    / tdp.slotGen(wallHeight.A, terrainGuidelines[5], "inf", "mid")
+                    / tdp.slotGen(wallHeight.B, terrainGuidelines[6], "inf", "mid")
+                    * pipe.flatten()
+                    * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
