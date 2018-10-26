@@ -305,9 +305,7 @@ local updateFn = function(models)
                 
                 return {
                     station.newModel(models.mRoofFenceF.."_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(true, true)(sizeF)),
-                    station.newModel(models.mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF)),
-                    station.newModel(models.mRoof.."_tl.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(false)(true, true)(sizeR)),
-                    station.newModel(models.mRoof.."_br.mdl", coor.transZ(0), tdp.fitModel2D(5, 5)(false)(false, false)(sizeR))
+                    station.newModel(models.mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF))
                 }
             end)
         
@@ -325,7 +323,7 @@ local updateFn = function(models)
                     {
                         equal = 
                             station.projectPolys(coor.I())(polys) 
-                            / station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0))
+                            / station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0.1), coor.xyz(0, 2, 0.1))
                             + station.projectPolys(coor.I())(polysTracks) * function(p) return p * pipe.range(1, 4) * pipe.filter(pipe.noop()) end
                     }
                 )()
@@ -333,7 +331,7 @@ local updateFn = function(models)
                 groundFaces = (pipe.new
                 + polys * pipe.mapFlatten(function(p)
                     return {
-                        {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}},
+                        -- {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}},
                         {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast"}}}
                     }
                 end)

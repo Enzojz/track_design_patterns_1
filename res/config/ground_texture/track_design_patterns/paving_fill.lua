@@ -8,6 +8,6 @@ return {
 	colorTex = tu.makeTextureMipmapRepeat("ground_texture/lot_color.tga", false),
 	colorSize = 256.0,
 	
-	priority = 11
+	priority = 1000000
 }
 end
