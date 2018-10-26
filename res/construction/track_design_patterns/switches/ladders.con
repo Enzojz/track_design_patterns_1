@@ -336,7 +336,6 @@ local updateFn = function()
             wallOffsets.l - wallOffset
         }
 
-        dump(guidelines)
         local wallGuidelines = func.map2(
             {
                 guidelines.l,
