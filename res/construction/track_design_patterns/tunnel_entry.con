@@ -271,7 +271,7 @@ local updateFn = function()
             return coor.transZ(-9) * fitModel(size)
         end
         
-        local wallType = params.wallType + 1
+        local wallType = params.wallType + 1 or 1
         
         local makeWallL = tdp.makeFn(true)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
         local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)

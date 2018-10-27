@@ -81,6 +81,7 @@ local descEN = [[
     * New thinner and realistic wall models
     * Improved model collision detecting to help construction easier
     * Bugfix on slope model error on switches, crossover and track ladders
+    * Added brick tunnel entry
     1.4
     * Added "Road stacking over tracks" pattern
     * Added some extra spacing in Crossover pattern to adapt some other station mods
@@ -174,6 +175,7 @@ local descZH = [[
     * 新的更真实的墙面模型
     * 改进了模型碰撞检测逻辑，使得建造更容易
     * 修正了在带有坡度的道岔、渡线和梯线上的模型错误
+    * 砖石版本的隧道入口
     1.4
     * 增加了“悬于轨道之上的马路”模式
     * 在渡线模式中增加了一些适配其他MOD车站的轨道间距
