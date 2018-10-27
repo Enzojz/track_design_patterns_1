@@ -261,8 +261,8 @@ local updateFn = function()
         
         local trackPavingGuidelines =
             {
-                func.seqMap({0, wallOffset}, function(d) return guidelines.l + (-d + 0.2455 + wallOffsets.l) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.r + (-d + 0.2455 - wallOffsets.r) end)
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.l + (-d + wallOffsets.l) end),
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.r + (-d - wallOffsets.r) end)
             }
 
         local terrainGuidelines = pipe.new

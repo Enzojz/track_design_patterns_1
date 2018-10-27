@@ -398,12 +398,12 @@ local updateFn = function()
         
         local trackPavingGuidelines =
             {
-                func.seqMap({0, wallOffset}, function(d) return guidelines.l + (-d + 0.2455 + offsets.walls[1]) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.r + (-d + 0.2455 - offsets.walls[#offsets.walls]) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.complementary.l + (compactness and 1 or -1) * (-d + 0.2455 + offsets.walls[1]) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.complementary.r + (compactness and 1 or -1) * (-d + 0.2455 - offsets.walls[#offsets.walls]) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.c + (-d + 0.2455 + offsets.walls[1]) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.c + (d - 0.2455 + offsets.walls[#offsets.walls]) end)
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.l + (-d + offsets.walls[1]) end),
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.r + (-d - offsets.walls[#offsets.walls]) end),
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.complementary.l + (compactness and 1 or -1) * (-d + offsets.walls[1]) end),
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.complementary.r + (compactness and 1 or -1) * (-d - offsets.walls[#offsets.walls]) end),
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.c + (-d + offsets.walls[1]) end),
+                func.seqMap({-1, wallOffset}, function(d) return guidelines.c + (d + offsets.walls[#offsets.walls]) end)
             }
         
 
@@ -425,49 +425,6 @@ local updateFn = function()
                     slot = {g + o, g + (-o + f * 2.5)}
                 } 
             end)
-
-            tdp.polyGen = function(slope)
-                return function(wallHeight, refHeight, guidelines, wHeight, fr, to)
-                    local f = function(s) return s.g and
-                        tdp.generatePolyArc(s.g, fr, to)(-0.2, 0)
-                        * pipe.map(pipe.map(s.fz))
-                        * station.projectPolys(coor.I())
-                        or {}
-                    end
-                    local polyGen = function(l, e, g)
-                        return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
-                    end
-                    return {
-                        platform = polyGen(
-                            {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end},
-                            {},
-                            {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end}
-                        ),
-                        slot = polyGen(
-                            {},
-                            {},
-                            {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end}
-                        ),
-                        equal = polyGen(
-                            {},
-                            refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end},
-                            {}
-                        ),
-                        less = polyGen(
-                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end},
-                            refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
-                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope + wallHeight - 0.1)(p) end}
-                        ),
-                        greater = polyGen(
-                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight)(p) end},
-                            refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
-                            refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end} or
-                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight + wallHeight)(p) end}
-                    )
-                    }
-                end
-            end
-
             
         local polyGen = tdp.polyGen(slope)
         

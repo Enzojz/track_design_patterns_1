@@ -307,8 +307,8 @@ local updateFn = function()
             * (radius < 0 and pipe.noop() or pipe.rev())
             * pipe.map(function(o)
                 return pipe.new
-                    * func.seq(0, wallOffset)
-                    * pipe.map(function(d) return guideline + o + (d - 0.2455) * (o > 0 and 1 or -1) end)
+                    * func.seq(-1, wallOffset)
+                    * pipe.map(function(d) return guideline + o + d * (o > 0 and 1 or -1) end)
             end)
         
         local function mPlace(vfz, mZ)
@@ -380,7 +380,7 @@ local updateFn = function()
         
         local polyGen = function(wallHeight, refHeight, guidelines, wHeight)
             local f = function(s) return s.g and
-                tdp.generatePolyArc({s.g, guideline}, "inf", "sup")(-0.2, 0)
+                tdp.generatePolyArc({s.g, guideline}, "inf", "sup")(0, 0)
                 * pipe.map(pipe.map(s.fz))
                 * station.projectPolys(coor.I())
                 or {}
