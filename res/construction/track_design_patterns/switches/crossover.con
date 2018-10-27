@@ -129,7 +129,7 @@ local updateFn = function()
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local orientation = params.orientation + 1
-        local wallOffset = params.wallOffset * 0.5
+        local wallOffset = params.wallOffset * 0.5 + 0.2
         local pattern = params.pattern + 1
         local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1) * 0.001
         
@@ -261,8 +261,8 @@ local updateFn = function()
         
         local trackPavingGuidelines =
             {
-                func.seqMap({0, wallOffset}, function(d) return guidelines.l:extendLimits(-0.05) + (-d + 0.2455 + wallOffsets.l) end),
-                func.seqMap({0, wallOffset}, function(d) return guidelines.r:extendLimits(-0.05) + (-d + 0.2455 - wallOffsets.r) end)
+                func.seqMap({0, wallOffset}, function(d) return guidelines.l + (-d + 0.2455 + wallOffsets.l) end),
+                func.seqMap({0, wallOffset}, function(d) return guidelines.r + (-d + 0.2455 - wallOffsets.r) end)
             }
 
         local terrainGuidelines = pipe.new
@@ -372,8 +372,8 @@ function data()
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27226,
-        -- skipCollision = false,
-        -- autoRemovable = false,
+        skipCollision = true,
+        autoRemovable = false,
         params = params(),
         updateFn = updateFn()
     }

@@ -575,14 +575,14 @@ local updateFn = function()
             retriveWall(({colList, wallList, colList})[openSide]),
             tdp.fitModel,
             mPlace(fzTr, coor.transZ(wallHeight - 10)),
-            1,
+            0.5,
             retriveWall(({colLengthList, wallLengthList, colLengthList})[openSide])
         )
         local makeWallB = tdp.makeFn(true)(
             retriveWall(({wallList, colList, colList})[openSide]),
             tdp.fitModel,
             mPlace(fzTr, coor.transZ(wallHeight - 10)),
-            1,
+            0.5,
             retriveWall(({wallLengthList, colLengthList, colLengthList})[openSide])
         )
         
@@ -590,14 +590,14 @@ local updateFn = function()
             retriveWall(fenceList),
             tdp.fitModel,
             mPlace(fzSt, coor.I()),
-            1,
+            0.5,
             5
         )
         local makeFenceB = tdp.makeFn(false)(
             retriveWall(fenceList),
             tdp.fitModel,
             mPlace(fzSt, coor.I()),
-            1,
+            0.5,
             5
         )
         local makeRoof = tdp.makeFn(false)(
@@ -798,8 +798,8 @@ function data()
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27219,
-        -- skipCollision = false,
-        -- autoRemovable = false,
+        skipCollision = true,
+        autoRemovable = false,
         params = params(),
         updateFn = updateFn()
     }

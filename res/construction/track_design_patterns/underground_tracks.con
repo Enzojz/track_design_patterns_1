@@ -263,8 +263,8 @@ function data()
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27230,
-        -- skipCollision = false,
-        -- autoRemovable = false,
+        skipCollision = true,
+        autoRemovable = false,
         params = params(),
         updateFn = updateFn()
     }

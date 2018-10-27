@@ -147,7 +147,7 @@ local updateFn = function()
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local nbTracks = params.nbTracks + 1
         local offsets = tdp.buildCoors(nbTracks, nbTracks)
-        local wallOffset = params.wallOffset * 0.5
+        local wallOffset = params.wallOffset * 0.5 + 0.2
         
         local cot = sizeSwitch[params.cot + 1]
         local rad = atan(1 / cot) * (params.type == 1 and 0.5 or 1)
@@ -426,6 +426,49 @@ local updateFn = function()
                 } 
             end)
 
+            tdp.polyGen = function(slope)
+                return function(wallHeight, refHeight, guidelines, wHeight, fr, to)
+                    local f = function(s) return s.g and
+                        tdp.generatePolyArc(s.g, fr, to)(-0.2, 0)
+                        * pipe.map(pipe.map(s.fz))
+                        * station.projectPolys(coor.I())
+                        or {}
+                    end
+                    local polyGen = function(l, e, g)
+                        return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
+                    end
+                    return {
+                        platform = polyGen(
+                            {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end},
+                            {},
+                            {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end}
+                        ),
+                        slot = polyGen(
+                            {},
+                            {},
+                            {g = guidelines.inner, fz = function(p) return coor.transZ(p.y * slope)(p) end}
+                        ),
+                        equal = polyGen(
+                            {},
+                            refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end},
+                            {}
+                        ),
+                        less = polyGen(
+                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end},
+                            refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
+                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope + wallHeight - 0.1)(p) end}
+                        ),
+                        greater = polyGen(
+                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight)(p) end},
+                            refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
+                            refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end} or
+                            {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight + wallHeight)(p) end}
+                    )
+                    }
+                end
+            end
+
+            
         local polyGen = tdp.polyGen(slope)
         
         local pointTerrain = pipe.exec * function()
@@ -563,8 +606,8 @@ function data()
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27225,
-        -- skipCollision = false,
-        -- autoRemovable = false,
+        skipCollision = true,
+        autoRemovable = false,
         params = params(),
         updateFn = updateFn()
     }

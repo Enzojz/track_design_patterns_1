@@ -188,7 +188,7 @@ local updateFn = function()
         local initRad = radius > 0 and pi or 0
         local dRad = math.abs(length / radius) < 2 * pi and -length / radius or 2 * pi * 0.99
         
-        local wallOffset = params.wallOffset * 0.5
+        local wallOffset = params.wallOffset * 0.5 + 0.2
         
         local function signalGrouping(result, leftLength)
             return leftLength <= 0 and result / 1 or signalGrouping(result / ((length - leftLength) / length), leftLength - signalSpacing)
@@ -308,7 +308,7 @@ local updateFn = function()
             * pipe.map(function(o)
                 return pipe.new
                     * func.seq(0, wallOffset)
-                    * pipe.map(function(d) return guideline:extendLimits(-0.05) + o + (d - 0.2455) * (o > 0 and 1 or -1) end)
+                    * pipe.map(function(d) return guideline + o + (d - 0.2455) * (o > 0 and 1 or -1) end)
             end)
         
         local function mPlace(vfz, mZ)
@@ -371,9 +371,9 @@ local updateFn = function()
                     local extra = function(w) return ref + (o > 0 and w or -w) end
                     return
                         {
-                            ref = ref,
-                            outer = extra(wallOffset + 0.25),
-                            inner = extra(wallOffset - 0.25),
+                            ref = extra(wallOffset),
+                            outer = extra(wallOffset + 0.5),
+                            inner = extra(wallOffset - 0.5),
                             limit = guideline + t
                         }
                 end)
@@ -398,7 +398,7 @@ local updateFn = function()
                 less = polyGen(
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
                     refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight)(p) end}
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight - 0.1)(p) end}
                 ),
                 greater = polyGen(
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight)(p) end},
@@ -422,7 +422,7 @@ local updateFn = function()
             return polyGen(
                     {},
                     {},
-                    {g = guidelines.outer, l = guidelines.limit}
+                    {g = guidelines.ref, l = guidelines.limit}
                 )
         end
         
@@ -476,8 +476,8 @@ function data()
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27218,
-        -- skipCollision = false,
-        -- autoRemovable = false,
+        skipCollision = true,
+        autoRemovable = false,
         params = params(),
         updateFn = updateFn()
     }

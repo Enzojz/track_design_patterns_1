@@ -134,7 +134,7 @@ local updateFn = function()
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local nbTracks = params.nbTracks + 1
-        local wallOffset = params.wallOffset * 0.5
+        local wallOffset = params.wallOffset * 0.5 + 0.2
         local slope = slopeList[params.slope + 1] * (params.slopeSign == 0 and 1 or -1) * 0.001
         local isOpen = params.isOpen == 0
         local distance = ({5, 9, 10})[params.distance + 1]
@@ -425,8 +425,8 @@ function data()
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27227,
-        -- skipCollision = false,
-        -- autoRemovable = false,
+        skipCollision = true,
+        autoRemovable = false,
         params = params(),
         updateFn = updateFn()
     }
