@@ -76,6 +76,11 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.5
+    * Rework on terrain implementation to have zig-zag-less and smooth terrain cutting
+    * New thinner and realistic wall models
+    * Improved model collision detecting to help construction easier
+    * Bugfix on slope model error on switches, crossover and track ladders
     1.4
     * Added "Road stacking over tracks" pattern
     * Added some extra spacing in Crossover pattern to adapt some other station mods
@@ -164,6 +169,11 @@ local descZH = [[
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.5
+    * 重写了修改地面的方法，消除了毛刺和其他视觉错误
+    * 新的更真实的墙面模型
+    * 改进了模型碰撞检测逻辑，使得建造更容易
+    * 修正了在带有坡度的道岔、渡线和梯线上的模型错误
     1.4
     * 增加了“悬于轨道之上的马路”模式
     * 在渡线模式中增加了一些适配其他MOD车站的轨道间距

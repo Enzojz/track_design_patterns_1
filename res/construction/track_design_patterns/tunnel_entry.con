@@ -264,7 +264,6 @@ local updateFn = function(models)
         
         local makeWallL = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
         local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
-        local makeRoof =  tdp.makeFn(false)(models.mRoof, tdp.fitModel2D, mPlace, 5)
 
         local makePaving = tdp.makeFn(false)(
             "track_design_patterns/paving_base",
@@ -366,8 +365,7 @@ function data()
         
         updateFn = updateFn(
             {
-                mRoofFenceF = "track_design_patterns/roof_fence_front",
-                mRoof = "track_design_patterns/roof",
+                mRoofFenceF = "track_design_patterns/roof_fence_front"
             }
     )
     }

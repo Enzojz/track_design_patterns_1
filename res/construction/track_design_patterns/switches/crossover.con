@@ -302,7 +302,7 @@ local updateFn = function()
             return 
                 tdp.makeFn(wallHeight.A < 0)(
                 retriveWall.A(wallList),
-                tdp.fitModel2D, 
+                tdp.fitModel, 
                 mPlace(
                     fz,
                     retriveWall.A(wallTransList)(wallHeight.A)
@@ -316,7 +316,7 @@ local updateFn = function()
             return 
                 tdp.makeFn(wallHeight.B > 0)(
                 retriveWall.B(wallList),
-                tdp.fitModel2D,
+                tdp.fitModel,
                 mPlace(
                     fz,
                     retriveWall.B(wallTransList)(wallHeight.B)
@@ -329,7 +329,7 @@ local updateFn = function()
         local makePaving = function(fz)
             return tdp.makeFn(false)(
                 "track_design_patterns/paving_base",
-                tdp.fitModel2D,
+                tdp.fitModel,
                 mPlace(fz, coor.transZ(-1e-3)),
                 1, 5
             )

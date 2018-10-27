@@ -378,7 +378,7 @@ tdp.polyGen = function(slope)
             less = polyGen(
                 {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope)(p) end},
                 refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(p.y * slope)(p) end} or {},
-                {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope + wallHeight - 0.1)(p) end}
+                {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope + wallHeight - 0.25)(p) end}
             ),
             greater = polyGen(
                 {g = guidelines.outer, fz = function(p) return coor.transZ(p.y * slope - wHeight)(p) end},

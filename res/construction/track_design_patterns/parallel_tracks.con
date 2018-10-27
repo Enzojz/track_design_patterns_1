@@ -398,7 +398,7 @@ local updateFn = function()
                 less = polyGen(
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
                     refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight - 0.1)(p) end}
+                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight - 0.25)(p) end}
                 ),
                 greater = polyGen(
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight)(p) end},
