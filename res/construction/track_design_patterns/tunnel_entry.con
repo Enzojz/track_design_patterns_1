@@ -19,6 +19,11 @@ local wallList = {
     "track_design_patterns/2/brick_wall",
     "track_design_patterns/2/arch_wall",
 }
+local fenceList = {
+    "track_design_patterns/2/concrete_roof_fence_front",
+    "track_design_patterns/2/brick_roof_fence_front",
+    "track_design_patterns/2/brick_roof_fence_front"
+}
 
 local function params()
     local sp = "----------------------------\n"
@@ -40,6 +45,12 @@ local function params()
             name = _("Slope") .. "(‰)",
             values = func.map(slopeList, tostring),
             defaultIndex = math.floor(#slopeList * 0.5)
+        },
+        {
+            key = "wallType",
+            name = sp .. _("Type"),
+            values = {_("Concrete"), _("Stone brick"), _("Arch")},
+            defaultIndex = 0
         },
         {
             key = "signS",
@@ -113,7 +124,7 @@ local function defaultParams(param)
     func.forEach(params(), function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
 end
 
-local updateFn = function(models)
+local updateFn = function()
     return function(params)
         defaultParams(params)
         
@@ -260,10 +271,11 @@ local updateFn = function(models)
             return coor.transZ(-9) * fitModel(size)
         end
         
-        local wallType = 1
+        local wallType = params.wallType + 1
         
-        local makeWallL = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
+        local makeWallL = tdp.makeFn(true)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
         local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
+        local mRoofFenceF = fenceList[wallType]
 
         local makePaving = tdp.makeFn(false)(
             "track_design_patterns/paving_base",
@@ -303,8 +315,8 @@ local updateFn = function(models)
                 }
                 
                 return {
-                    station.newModel(models.mRoofFenceF.."_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(true, true)(sizeF)),
-                    station.newModel(models.mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF))
+                    station.newModel(mRoofFenceF.."_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(true, true)(sizeF)),
+                    station.newModel(mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF))
                 }
             end)
         
@@ -363,11 +375,7 @@ function data()
         autoRemovable = false,
         params = params(),
         
-        updateFn = updateFn(
-            {
-                mRoofFenceF = "track_design_patterns/roof_fence_front"
-            }
-    )
+        updateFn = updateFn()
     }
 
 end
