@@ -256,7 +256,7 @@ local updateFn = function()
         * pipe.map2({1, -1}, function(o, d) return guideline.surface + (o + d) * (radius.surface > 0 and -1 or 1) end)
 
         local polys = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, radius.surface > 0 and -1 or 1)
-        local slotPolys = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(0, 0)
+        local slotPolys = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(0, radius.surface > 0 and -0.25 or 0.25)
         local polysTracks = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, radius.surface > 0 and -0.5 or 0.5)
             * pipe.map(pipe.map(function(p) return coor.transZ(fz.surface(p.rad).z - 0.01)(p) end))
         
