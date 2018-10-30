@@ -210,6 +210,40 @@ tdp.normalizeRad = function(rad)
     return (rad < pi * -0.5) and tdp.normalizeRad(rad + pi * 2) or rad
 end
 
+tdp.generateArcAuto = function(arc, ext)
+    local ext = ext or 5
+    local toXyz = function(pt) return coor.xyz(pt.x, pt.y, 0) end
+    
+    local extArc = arc:extendLimits(ext)
+    
+    local n = (function(n) return n < 2 and 2 or n end)(ceil(abs((arc.sup - arc.inf) / pi * 6)))
+    local step = (arc.sup - arc.inf) / n
+
+    local sup = toXyz(arc:pt(arc.sup))
+    local inf = toXyz(arc:pt(arc.inf))
+    
+    local vecSup = arc:tangent(arc.sup)
+    local vecInf = arc:tangent(arc.inf)
+    
+    local supExt = toXyz(extArc:pt(extArc.sup))
+    local infExt = toXyz(extArc:pt(extArc.inf))
+    
+    return pipe.new
+        * func.seq(1, n)
+        * pipe.map(function(i)
+            local base = arc.inf + step * (i - 1)
+            local inf = toXyz(arc:pt(base))
+            local sup = toXyz(arc:pt(base + step))
+            
+            local vecInf = arc:tangent(base)
+            local vecSup = arc:tangent(base + step)
+
+            return {inf, sup, vecInf, vecSup, rad = {base, base + step}}
+        end)
+        / {infExt, inf, extArc:tangent(extArc.inf), vecInf, rad = {extArc.inf, arc.inf}}
+        / {sup, supExt, vecSup, extArc:tangent(extArc.sup), rad = {arc.sup, extArc.sup}}
+end
+
 tdp.generateArc = function(arc, ext)
     local ext = ext or 5
     local toXyz = function(pt) return coor.xyz(pt.x, pt.y, 0) end
