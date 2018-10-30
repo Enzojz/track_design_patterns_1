@@ -43,8 +43,8 @@ tdp.trackType = pipe.exec * function()
 end
 
 local normalizeSize = function(mirrored, size)
-    return 
-        ((size.lt - size.lb):cross(size.rb - size.lb).z * (mirrored and -1 or 1) < 0)
+    return
+    ((size.lt - size.lb):cross(size.rb - size.lb).z * (mirrored and -1 or 1) < 0)
         and size
         or {
             lt = size.rt,
@@ -218,7 +218,7 @@ tdp.generateArcAuto = function(arc, ext)
     
     local n = (function(n) return n < 2 and 2 or n end)(ceil(abs((arc.sup - arc.inf) / pi * 6)))
     local step = (arc.sup - arc.inf) / n
-
+    
     local sup = toXyz(arc:pt(arc.sup))
     local inf = toXyz(arc:pt(arc.inf))
     
@@ -237,7 +237,7 @@ tdp.generateArcAuto = function(arc, ext)
             
             local vecInf = arc:tangent(base)
             local vecSup = arc:tangent(base + step)
-
+            
             return {inf, sup, vecInf, vecSup, rad = {base, base + step}}
         end)
         / {infExt, inf, extArc:tangent(extArc.inf), vecInf, rad = {extArc.inf, arc.inf}}
@@ -293,20 +293,20 @@ tdp.makeFn = function(rot180)
         local fitBottomRight = fitModel(w, l)(false)(false, false)
         return function(obj)
             local coordsGen = arc.coords(obj, l)
-            local inner = obj + (- eW * 0.5)
+            local inner = obj + (-eW * 0.5)
             local outer = obj + (eW * 0.5)
             local function makeModel(seq, scale)
-                return pipe.new * func.map(func.interlace(seq, {"i", "s"}), 
-                function(rad)
-                    return {
-                        station.newModel(model .. (rot180 and "_br.mdl" or "_tl.mdl"),
-                        m * mPlace(fitTopLeft, inner, outer, rad.i, rad.s)
-                    ),
-                        station.newModel(model .. (rot180 and "_tl.mdl" or "_br.mdl"),
-                        m * mPlace(fitBottomRight, inner, outer, rad.i, rad.s)
-                    )
-                }
-                end) * pipe.flatten()
+                return pipe.new * func.map(func.interlace(seq, {"i", "s"}),
+                    function(rad)
+                        return {
+                            station.newModel(model .. (rot180 and "_br.mdl" or "_tl.mdl"),
+                                m * mPlace(fitTopLeft, inner, outer, rad.i, rad.s)
+                            ),
+                            station.newModel(model .. (rot180 and "_tl.mdl" or "_br.mdl"),
+                                m * mPlace(fitBottomRight, inner, outer, rad.i, rad.s)
+                        )
+                        }
+                    end) * pipe.flatten()
             end
             return {
                 makeModel(coordsGen(tdp.normalizeRad(obj.inf), tdp.normalizeRad(obj.mid))),
@@ -322,13 +322,13 @@ local biLatCoords = function(length, from, to)
         local rst = pipe.new * {l, ...}
         return table.unpack(
             func.map(rst,
-                function(s) 
+                function(s)
                     local radF, radT = from(s), to(s)
                     local lscale = (radF - radT) * s.r / (nSeg * length)
                     return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
-                    function(n) 
-                        local rad = radF + n * ((radT - radF) / nSeg)
-                        return func.with(s:pt(rad):withZ(0), {rad = rad}) end)
+                        function(n)
+                            local rad = radF + n * ((radT - radF) / nSeg)
+                            return func.with(s:pt(rad):withZ(0), {rad = rad}) end)
                 end)
     )
     end
@@ -337,30 +337,28 @@ end
 tdp.generatePolyArc = function(groups, from, to)
     local groupI, groupO = groups[1], groups[#groups]
     return function(extLon, extLat)
-            local coorO, coorI = biLatCoords(5, function(s) return tdp.normalizeRad(s[from]) end, function(s) return tdp.normalizeRad(s[to]) end)(
-                    (groupO + extLat):extendLimits(extLon), 
-                    (groupI + (-extLat)):extendLimits(extLon)
-                )
-
-            return 
-                pipe.new *
-                pipe.mapn(func.interlace(coorO, {"i", "s"}), func.interlace(coorI, {"i", "s"}))
-                (function(o, i) return { o.i, o.s, i.s, i.i } end)
+        local coorO, coorI = biLatCoords(5, function(s) return tdp.normalizeRad(s[from]) end, function(s) return tdp.normalizeRad(s[to]) end)(
+            (groupO + extLat):extendLimits(extLon),
+                (groupI + (-extLat)):extendLimits(extLon)
+        )
+        return
+            pipe.new *
+            pipe.mapn(func.interlace(coorO, {"i", "s"}), func.interlace(coorI, {"i", "s"}))
+            (function(o, i) return {o.i, o.s, i.s, i.i} end)
     end
 end
 
 tdp.generatePolyArcFn = function(groups, from, to)
     local groupI, groupO = groups[1], groups[#groups]
     return function(extLon, extLat)
-            local coorO, coorI = biLatCoords(5, from, to)(
-                    (groupO + extLat):extendLimits(extLon), 
-                    (groupI + (-extLat)):extendLimits(extLon)
-                )
-
-            return 
-                pipe.new *
-                pipe.mapn(func.interlace(coorO, {"i", "s"}), func.interlace(coorI, {"i", "s"}))
-                (function(o, i) return { o.i, o.s, i.s, i.i } end)
+        local coorO, coorI = biLatCoords(5, from, to)(
+            (groupO + extLat):extendLimits(extLon),
+                (groupI + (-extLat)):extendLimits(extLon)
+        )
+        return
+            pipe.new *
+            pipe.mapn(func.interlace(coorO, {"i", "s"}), func.interlace(coorI, {"i", "s"}))
+            (function(o, i) return {o.i, o.s, i.s, i.i} end)
     end
 end
 
@@ -376,10 +374,10 @@ tdp.slotGen = function(wallHeight, guidelines, fr, to)
     end
     
     return polyGen(
-            {},
-            {},
-            {g = guidelines.slot}
-        )
+        {},
+        {},
+        {g = guidelines.slot}
+)
 end
 
 tdp.polyGen = function(slope)

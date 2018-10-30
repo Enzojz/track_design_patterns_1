@@ -48,7 +48,7 @@ local function params()
         {
             key = "pattern",
             name = _("Pattern"),
-            values = {_("X"), _("N"), "½"..("N"), "¾"..("N")},
+            values = {_("X"), _("N"), "½" .. ("N"), "¾" .. ("N")},
             defaultIndex = 1,
         },
         {
@@ -264,7 +264,7 @@ local updateFn = function()
                 func.seqMap({-1, wallOffset}, function(d) return guidelines.l + (-d + wallOffsets.l) end),
                 func.seqMap({-1, wallOffset}, function(d) return guidelines.r + (-d - wallOffsets.r) end)
             }
-
+        
         local terrainGuidelines = pipe.new
             * wallGuidelines
             * pipe.map2({guidelines.l, guidelines.r}, function(g, l)
@@ -282,7 +282,7 @@ local updateFn = function()
             polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList), "inf", "sup"),
             polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList), "inf", "sup")
         )({less = 1.5})
-                
+        
         local fz = function(g) return function(rad) return {z = g:pt(rad).y * slope, s = slope} end end
         
         local function mPlace(fz, mZ)
@@ -297,33 +297,33 @@ local updateFn = function()
                 return mZ * fitModel(size)
             end
         end
-
+        
         local makeWallA = function(fz)
-            return 
+            return
                 tdp.makeFn(wallHeight.A < 0)(
-                retriveWall.A(wallList),
-                tdp.fitModel, 
-                mPlace(
-                    fz,
-                    retriveWall.A(wallTransList)(wallHeight.A)
-                ),
-                retriveWall.A(wallWidthList),
-                retriveWall.A(wallLengthList)
-            )
+                    retriveWall.A(wallList),
+                    tdp.fitModel,
+                    mPlace(
+                        fz,
+                        retriveWall.A(wallTransList)(wallHeight.A)
+                    ),
+                    retriveWall.A(wallWidthList),
+                    retriveWall.A(wallLengthList)
+        )
         end
         
         local makeWallB = function(fz)
-            return 
+            return
                 tdp.makeFn(wallHeight.B > 0)(
-                retriveWall.B(wallList),
-                tdp.fitModel,
-                mPlace(
-                    fz,
-                    retriveWall.B(wallTransList)(wallHeight.B)
-                ),
-                retriveWall.B(wallWidthList),
-                retriveWall.B(wallLengthList)
-            )
+                    retriveWall.B(wallList),
+                    tdp.fitModel,
+                    mPlace(
+                        fz,
+                        retriveWall.B(wallTransList)(wallHeight.B)
+                    ),
+                    retriveWall.B(wallWidthList),
+                    retriveWall.B(wallLengthList)
+        )
         end
         
         local makePaving = function(fz)
@@ -332,9 +332,9 @@ local updateFn = function()
                 tdp.fitModel,
                 mPlace(fz, coor.transZ(-1e-3)),
                 1, 5
-            )
+        )
         end
-
+        
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * makeWallA(fz(guidelines.l))(wallGuidelines[1]) * (pattern == 3 and pipe.select(({2, 1})[orientation]) or pipe.flatten())}
             + {wallHeight.B == 0 and {} or pipe.new * makeWallB(fz(guidelines.r))(wallGuidelines[2]) * (pattern > 2 and pipe.select(orientation) or pipe.flatten())}
@@ -347,8 +347,8 @@ local updateFn = function()
                 edgeLists = {pipe.new * {edge} * station.prepareEdges * trackBuilder.nonAligned()},
                 terrainAlignmentLists = polys,
                 models = walls * pipe.flatten(),
-                groundFaces = 
-                pipe.new 
+                groundFaces =
+                pipe.new
                 / tdp.slotGen(wallHeight.A, terrainGuidelines[1], "inf", "sup")
                 / tdp.slotGen(wallHeight.B, terrainGuidelines[2], "inf", "sup")
                 * pipe.flatten()

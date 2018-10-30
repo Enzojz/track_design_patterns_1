@@ -283,7 +283,7 @@ local updateFn = function()
             A = func.seq(-1, 15)[params.wallAHeight + 1],
             B = params.wallBHeight == 0 and func.seq(-1, 15)[params.wallAHeight + 1] or func.seq(-1, 15)[params.wallBHeight]
         }
-
+        
         local vfz = function(h, va)
             local var = h < 0 and 0 or
                 va + h > 15 and 15 - h or
@@ -331,10 +331,9 @@ local updateFn = function()
                 vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1]),
                 retriveWall.A(wallTransList)(wallHeight.A)
             ),
-            retriveWall.A(wallWidthList), 
+            retriveWall.A(wallWidthList),
             retriveWall.A(wallLengthList)
         )
-        
         local makeWallB = tdp.makeFn(wallHeight.B > 0)(
             retriveWall.B(wallList),
             tdp.fitModel,
@@ -345,7 +344,6 @@ local updateFn = function()
             retriveWall.B(wallWidthList),
             retriveWall.B(wallLengthList)
         )
-        
         local makePaving = tdp.makeFn(false)(
             "track_design_patterns/paving_base",
             tdp.fitModel,
@@ -353,7 +351,6 @@ local updateFn = function()
             1,
             5
         )
-        
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * makeWallA(wallGuidelines[1]) * pipe.flatten()}
             + {wallHeight.B == 0 and {} or pipe.new * makeWallB(wallGuidelines[2]) * pipe.flatten()}
@@ -403,12 +400,12 @@ local updateFn = function()
                 greater = polyGen(
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight)(p) end},
                     refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                    refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or 
+                    refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or
                     {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight + wallHeight)(p) end}
             )
             }
         end
-
+        
         local slotGen = function(wallHeight, guidelines)
             local f = function(s) return s.g and
                 tdp.generatePolyArc({s.g, s.l}, "inf", "sup")(0, 0)
@@ -420,10 +417,10 @@ local updateFn = function()
             end
             
             return polyGen(
-                    {},
-                    {},
-                    {g = guidelines.ref, l = guidelines.limit}
-                )
+                {},
+                {},
+                {g = guidelines.ref, l = guidelines.limit}
+        )
         end
         
         return
@@ -451,8 +448,8 @@ local updateFn = function()
                     polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
                     polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
                 )({less = 1.5}),
-                groundFaces = 
-                pipe.new 
+                groundFaces =
+                pipe.new
                 / slotGen(wallHeight.A, terrainGuidelines[1])
                 / slotGen(wallHeight.B, terrainGuidelines[2])
                 * pipe.flatten()

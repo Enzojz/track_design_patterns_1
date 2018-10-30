@@ -241,14 +241,14 @@ local updateFn = function()
                     function(seg)
                         local inf, sup = table.unpack(seg.rad)
                         local zs = {
-                            coor.transZ(fz.surface(inf).z), 
-                            coor.transZ(fz.surface(sup).z), 
-                            coor.transZ(fz.surface(inf).s), 
+                            coor.transZ(fz.surface(inf).z),
+                            coor.transZ(fz.surface(sup).z),
+                            coor.transZ(fz.surface(inf).s),
                             coor.transZ(fz.surface(inf).s)
                         }
                         return func.map2(seg, zs, coor.apply)
                     end
-                )
+            )
             )
             * pipe.map(function(segs) return {edge = pipe.new * segs, snap = pipe.new / {true, false} + pipe.rep(#segs - 1)({false, false})} end),
             guidelines.underground
@@ -266,8 +266,8 @@ local updateFn = function()
             * pipe.map(function(o) return guideline.surface + (o) * (radius.surface > 0 and -1 or 1) end)
         
         local trackPavingGuidelines = offsets.walls
-        * pipe.map2({1, -1}, function(o, d) return guideline.surface + (o + d) * (radius.surface > 0 and -1 or 1) end)
-
+            * pipe.map2({1, -1}, function(o, d) return guideline.surface + (o + d) * (radius.surface > 0 and -1 or 1) end)
+        
         local polys = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, radius.surface > 0 and -1 or 1)
         local slotPolys = tdp.generatePolyArc(wallGuidelines, "mid", "sup")(0, radius.surface > 0 and -0.25 or 0.25)
         local polysTracks = tdp.generatePolyArc(wallGuidelines, "inf", "sup")(0, radius.surface > 0 and -0.5 or 0.5)
@@ -280,7 +280,7 @@ local updateFn = function()
                 rt = arcR:pt(rad1):withZ(0),
                 rb = arcR:pt(rad2):withZ(0)
             }
-    
+            
             return coor.transZ(-9) * fitModel(size)
         end
         
@@ -289,7 +289,7 @@ local updateFn = function()
         local makeWallL = tdp.makeFn(true)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
         local makeWallR = tdp.makeFn(false)(wallList[wallType], tdp.fitModel2D, mPlace, 0.5)
         local mRoofFenceF = fenceList[wallType]
-
+        
         local makePaving = tdp.makeFn(false)(
             "track_design_patterns/paving_base",
             tdp.fitModel,
@@ -306,7 +306,6 @@ local updateFn = function()
             1,
             5
         )
-
         local walls = pipe.new
             + {pipe.new * makeWallL(wallGuidelines[1] + (radius.surface > 0 and 0.2 or -0.2)) * pipe.flatten()}
             + {pipe.new * makeWallR(wallGuidelines[2] + (radius.surface < 0 and 0.2 or -0.2)) * pipe.flatten()}
@@ -319,7 +318,7 @@ local updateFn = function()
                     lb = coor.xyz(o - 3, 0, 0),
                     rb = coor.xyz(o + 3, 0, 0),
                 }
-
+                
                 local sizeR = {
                     lt = coor.xyz(o - (i == 1 and 3.75 or 2.5), 0, 0),
                     lb = coor.xyz(o - (i == 1 and 3.75 or 2.5), 4, 0),
@@ -328,8 +327,8 @@ local updateFn = function()
                 }
                 
                 return {
-                    station.newModel(mRoofFenceF.."_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(true, true)(sizeF)),
-                    station.newModel(mRoofFenceF.."_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF))
+                    station.newModel(mRoofFenceF .. "_tl.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(true, true)(sizeF)),
+                    station.newModel(mRoofFenceF .. "_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF))
                 }
             end)
         
@@ -345,16 +344,16 @@ local updateFn = function()
                 models = walls * pipe.flatten(),
                 terrainAlignmentLists = station.mergePoly(
                     {
-                        equal = 
-                            station.projectPolys(coor.I())(polys) 
-                            / station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0.1), coor.xyz(0, 2, 0.1))
-                            + station.projectPolys(coor.I())(polysTracks) * function(p) return p * pipe.range(1, 4) * pipe.filter(pipe.noop()) end
+                        equal =
+                        station.projectPolys(coor.I())(polys)
+                        / station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0.1), coor.xyz(0, 2, 0.1))
+                        + station.projectPolys(coor.I())(polysTracks) * function(p) return p * pipe.range(1, 4) * pipe.filter(pipe.noop()) end
                     }
                 )()
                 ,
                 groundFaces = (pipe.new
                 + polys * pipe.map(function(p) return {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast"}}} end)
-                + slotPolys * pipe.map(function(p) return  {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "hole"}}} end)
+                + slotPolys * pipe.map(function(p) return {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "hole"}}} end)
                 + {
                     {
                         face = station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0)),

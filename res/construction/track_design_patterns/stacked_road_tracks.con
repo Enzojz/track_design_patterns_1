@@ -402,7 +402,6 @@ local updateFn = function()
                 and function(e) return offsets.tracks[#offsets.tracks] + e * station.trackWidth + (nbTracks == 1 and 0 or 0.5) end
                 or function(e) return offsets.tracks[1] - e * station.trackWidth + (nbTracks == 1 and 0 or 0.5) end
         )
-        
         local wallHeight = tunnelHeight[params.wallHeight + 1]
         local connPos = params.connPos + 1
         
@@ -585,7 +584,6 @@ local updateFn = function()
             0.5,
             retriveWall(({wallLengthList, colLengthList, colLengthList})[openSide])
         )
-        
         local makeFenceA = tdp.makeFn(true)(
             retriveWall(fenceList),
             tdp.fitModel,
@@ -646,93 +644,93 @@ local updateFn = function()
         
         local slot = openSide == 3 and {} or
             tdp.generatePolyArc(
-                ({
-                    {guidelineTr, wallGuidelines[#wallGuidelines]},
-                    {wallGuidelines[1], guidelineTr},
-                })[openSide]
-                , "inf", "sup")(0, 0.25)
+            ({
+                {guidelineTr, wallGuidelines[#wallGuidelines]},
+                {wallGuidelines[1], guidelineTr},
+            })[openSide]
+            , "inf", "sup")(0, 0.25)
             * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z)(p) end))
             * station.projectPolys(coor.I())
-
+        
         local polyGen =
             {
                 greater =
-                    tdp.generatePolyArc({wallGuidelines[1], wallGuidelines[#wallGuidelines]}, "inf", "sup")(0, -1)
-                    * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z)(p) end))
-                    * station.projectPolys(coor.I()),
-                slot = 
-                    tdp.generatePolyArc(
-                        {
-                            wallGuidelines[1] + (radius > 0 and 1 or -1) * (openSide == 2 and -1.5 or 0), 
-                            wallGuidelines[#wallGuidelines] + (radius > 0 and 1 or -1) * (openSide == 1 and 1.5 or 0)
-                        }, "inf", "sup")(0, 0)
-                    * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z)(p) end))
-                    * station.projectPolys(coor.I())
-                    +
-                    (openSide == 2 and {} or tdp.generatePolyArc({
-                        wallGuidelines[1],
-                        wallGuidelines[1] + (radius > 0 and 1 or -1) * wallHeight * 2}, "inf", "sup")(0, 0)
-                    * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
-                    * station.projectPolys(coor.I())
-                    )
-                    +
-                    (openSide == 1 and {} or tdp.generatePolyArc({
-                        wallGuidelines[#wallGuidelines],
-                        wallGuidelines[#wallGuidelines] + (radius > 0 and -1 or 1) * wallHeight * 2}, "inf", "sup")(0, 0)
-                    * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
-                    * station.projectPolys(coor.I())
-                    ),
+                tdp.generatePolyArc({wallGuidelines[1], wallGuidelines[#wallGuidelines]}, "inf", "sup")(0, -1)
+                * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z)(p) end))
+                * station.projectPolys(coor.I()),
+                slot =
+                tdp.generatePolyArc(
+                    {
+                        wallGuidelines[1] + (radius > 0 and 1 or -1) * (openSide == 2 and -1.5 or 0),
+                        wallGuidelines[#wallGuidelines] + (radius > 0 and 1 or -1) * (openSide == 1 and 1.5 or 0)
+                    }, "inf", "sup")(0, 0)
+                * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z)(p) end))
+                * station.projectPolys(coor.I())
+                +
+                (openSide == 2 and {} or tdp.generatePolyArc({
+                    wallGuidelines[1],
+                    wallGuidelines[1] + (radius > 0 and 1 or -1) * wallHeight * 2}, "inf", "sup")(0, 0)
+                * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
+                * station.projectPolys(coor.I())
+                )
+                +
+                (openSide == 1 and {} or tdp.generatePolyArc({
+                    wallGuidelines[#wallGuidelines],
+                    wallGuidelines[#wallGuidelines] + (radius > 0 and -1 or 1) * wallHeight * 2}, "inf", "sup")(0, 0)
+                * pipe.map(pipe.map2({0, 0, wallHeight, wallHeight}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
+                * station.projectPolys(coor.I())
+                ),
                 platform =
-                    (withoutSt or openSide == 3 or streetWidth < abs(offsets.walls[#offsets.walls] - offsets.walls[1])) and {} or
-                    pipe.exec * function()
-                        local guidelineSt = ({
-                            guidelineStO + ((radiusSt > 0 and -0.5 or 0.5) * streetWidth),
-                            guidelineStO + ((radiusSt > 0 and 0.5 or -0.5) * streetWidth)
-                        })[openSide]
-                        
-                        local guidelineStExt = ({
-                            guidelineStO + ((radiusSt > 0 and -0.5 or 0.5) * (streetWidth + wallHeight * 4)),
-                            guidelineStO + ((radiusSt > 0 and 0.5 or -0.5) * (streetWidth + wallHeight * 4))
-                        })[openSide]
-                        
-                        local guidelineWall = ({
-                            wallGuidelines[#wallGuidelines] + (radius < 0 and -1 or 1),
-                            wallGuidelines[1] + (radius < 0 and 1 or -1)
-                        })[openSide]
-                        
-                        local findIntersection = function(guidelineSt)
-                            return pipe.new * (guidelineSt - guidelineWall)
-                                * pipe.filter(function(i)
-                                    local xo = (i - guidelineSt.o):withZ(0):normalized()
-                                    local io = (guidelineSt:pt(guidelineSt.inf) - guidelineSt.o):withZ(0):normalized()
-                                    local so = (guidelineSt:pt(guidelineSt.sup) - guidelineSt.o):withZ(0):normalized()
-                                    return abs(abs(dRad(so, io)) - abs(dRad(xo, io)) - abs(dRad(so, xo))) < 1e-8
-                                end)
-                        end
-                        
-                        local intersectionSt = findIntersection(guidelineSt)
-                        
-                        return
-                            tdp.generatePolyArcFn({guidelineSt, guidelineWall},
-                                function(s) return s.inf end,
-                                function(s) return #intersectionSt > 0 and s:rad(intersectionSt[1]) or s.sup end)(0, 0)
-                            * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
-                            * station.projectPolys(coor.I())
-                            +
-                            tdp.generatePolyArcFn({guidelineSt, guidelineStExt},
-                                function(s) return s.inf end,
-                                function(s) return #intersectionSt > 0 and s:rad(intersectionSt[1]) or s.sup end)(0, 0)
-                            * pipe.map(pipe.map2({wallHeight, wallHeight, 0, 0}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
-                            * station.projectPolys(coor.I())
+                (withoutSt or openSide == 3 or streetWidth < abs(offsets.walls[#offsets.walls] - offsets.walls[1])) and {} or
+                pipe.exec * function()
+                    local guidelineSt = ({
+                        guidelineStO + ((radiusSt > 0 and -0.5 or 0.5) * streetWidth),
+                        guidelineStO + ((radiusSt > 0 and 0.5 or -0.5) * streetWidth)
+                    })[openSide]
+                    
+                    local guidelineStExt = ({
+                        guidelineStO + ((radiusSt > 0 and -0.5 or 0.5) * (streetWidth + wallHeight * 4)),
+                        guidelineStO + ((radiusSt > 0 and 0.5 or -0.5) * (streetWidth + wallHeight * 4))
+                    })[openSide]
+                    
+                    local guidelineWall = ({
+                        wallGuidelines[#wallGuidelines] + (radius < 0 and -1 or 1),
+                        wallGuidelines[1] + (radius < 0 and 1 or -1)
+                    })[openSide]
+                    
+                    local findIntersection = function(guidelineSt)
+                        return pipe.new * (guidelineSt - guidelineWall)
+                            * pipe.filter(function(i)
+                                local xo = (i - guidelineSt.o):withZ(0):normalized()
+                                local io = (guidelineSt:pt(guidelineSt.inf) - guidelineSt.o):withZ(0):normalized()
+                                local so = (guidelineSt:pt(guidelineSt.sup) - guidelineSt.o):withZ(0):normalized()
+                                return abs(abs(dRad(so, io)) - abs(dRad(xo, io)) - abs(dRad(so, xo))) < 1e-8
+                            end)
                     end
+                    
+                    local intersectionSt = findIntersection(guidelineSt)
+                    
+                    return
+                        tdp.generatePolyArcFn({guidelineSt, guidelineWall},
+                            function(s) return s.inf end,
+                            function(s) return #intersectionSt > 0 and s:rad(intersectionSt[1]) or s.sup end)(0, 0)
+                        * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
+                        * station.projectPolys(coor.I())
+                        +
+                        tdp.generatePolyArcFn({guidelineSt, guidelineStExt},
+                            function(s) return s.inf end,
+                            function(s) return #intersectionSt > 0 and s:rad(intersectionSt[1]) or s.sup end)(0, 0)
+                        * pipe.map(pipe.map2({wallHeight, wallHeight, 0, 0}, function(p, z) return coor.transZ(fzSt(p.rad).z - z)(p) end))
+                        * station.projectPolys(coor.I())
+                end
                 ,
                 less = withoutSt and {} or
-                    tdp.generatePolyArc({guidelineStO, guidelineStO}, "inf", "sup")(0, 0.5 * streetWidth)
-                    * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
-                    * station.projectPolys(coor.I())
-                    + tdp.generatePolyArc({wallGuidelines[1], wallGuidelines[#wallGuidelines]}, "inf", "sup")(0, 0)
-                    * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z + wallHeight)(p) end))
-                    * station.projectPolys(coor.I())
+                tdp.generatePolyArc({guidelineStO, guidelineStO}, "inf", "sup")(0, 0.5 * streetWidth)
+                * pipe.map(pipe.map(function(p) return coor.transZ(fzSt(p.rad).z)(p) end))
+                * station.projectPolys(coor.I())
+                + tdp.generatePolyArc({wallGuidelines[1], wallGuidelines[#wallGuidelines]}, "inf", "sup")(0, 0)
+                * pipe.map(pipe.map(function(p) return coor.transZ(fzTr(p.rad).z + wallHeight)(p) end))
+                * station.projectPolys(coor.I())
             }
         
         return
@@ -776,9 +774,9 @@ local updateFn = function()
                     }
                 },
                 terrainAlignmentLists = station.mergePoly(polyGen)({}),
-                groundFaces = 
-                    pipe.new * slot
-                    * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
+                groundFaces =
+                pipe.new * slot
+                * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
             }
             * station.setHeight(func.seq(-15, 5)[params.height + 1])
     end

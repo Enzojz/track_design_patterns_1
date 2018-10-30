@@ -380,13 +380,13 @@ local updateFn = function()
         
         local wallGuidelineOffsets = {
             (-abs(offsets.walls[1] - wallOffset)),
-            (-abs(offsets.walls[2] + wallOffset)),
-            (compactness and 1 or -1) * (-abs(offsets.walls[1] - wallOffset)),
-            (compactness and 1 or -1) * (-abs(offsets.walls[2] + wallOffset)),
-            (-abs(offsets.walls[1] - wallOffset)),
-            (abs(offsets.walls[2] + wallOffset))
+                (-abs(offsets.walls[2] + wallOffset)),
+                (compactness and 1 or -1) * (-abs(offsets.walls[1] - wallOffset)),
+                (compactness and 1 or -1) * (-abs(offsets.walls[2] + wallOffset)),
+                (-abs(offsets.walls[1] - wallOffset)),
+                (abs(offsets.walls[2] + wallOffset))
         }
-
+        
         local wallGuidelines = func.map2({
             guidelines.l,
             guidelines.r,
@@ -406,8 +406,8 @@ local updateFn = function()
                 func.seqMap({-1, wallOffset}, function(d) return guidelines.c + (d + offsets.walls[#offsets.walls]) end)
             }
         
-
-        local terrainGuidelines = 
+        
+        local terrainGuidelines =
             func.map2({
                 guidelines.l,
                 guidelines.r,
@@ -415,17 +415,17 @@ local updateFn = function()
                 guidelines.complementary.r,
                 guidelines.c,
                 guidelines.c
-            }, wallGuidelineOffsets, 
-            function(g, o) 
+            }, wallGuidelineOffsets,
+            function(g, o)
                 local f = o > 0 and 1 or -1
                 return {
                     ref = {g + o, g},
-                    inner = {g + (o - f * 2.5), g + (-o + f *1.5)},
+                    inner = {g + (o - f * 2.5), g + (-o + f * 1.5)},
                     outer = {g + (o + f * 0.25), g},
                     slot = {g + o, g + (-o + f * 2.5)}
-                } 
+                }
             end)
-            
+        
         local polyGen = tdp.polyGen(slope)
         
         local pointTerrain = pipe.exec * function()
@@ -476,33 +476,33 @@ local updateFn = function()
                 return mZ * fitModel(size)
             end
         end
-
+        
         local makeWallA = function(fz)
-            return 
+            return
                 tdp.makeFn(wallHeight.A < 0)(
-                retriveWall.A(wallList),
-                tdp.fitModel, 
-                mPlace(
-                    fz,
-                    retriveWall.A(wallTransList)(wallHeight.A)
-                ),
-                retriveWall.A(wallWidthList),
-                retriveWall.A(wallLengthList)
-            )
+                    retriveWall.A(wallList),
+                    tdp.fitModel,
+                    mPlace(
+                        fz,
+                        retriveWall.A(wallTransList)(wallHeight.A)
+                    ),
+                    retriveWall.A(wallWidthList),
+                    retriveWall.A(wallLengthList)
+        )
         end
         
         local makeWallB = function(fz)
-            return 
+            return
                 tdp.makeFn(wallHeight.B > 0)(
-                retriveWall.B(wallList),
-                tdp.fitModel,
-                mPlace(
-                    fz,
-                    retriveWall.B(wallTransList)(wallHeight.B)
-                ),
-                retriveWall.B(wallWidthList),
-                retriveWall.B(wallLengthList)
-            )
+                    retriveWall.B(wallList),
+                    tdp.fitModel,
+                    mPlace(
+                        fz,
+                        retriveWall.B(wallTransList)(wallHeight.B)
+                    ),
+                    retriveWall.B(wallWidthList),
+                    retriveWall.B(wallLengthList)
+        )
         end
         
         local makePaving = function(fz)
@@ -511,9 +511,9 @@ local updateFn = function()
                 tdp.fitModel,
                 mPlace(fz, coor.transZ(-1e-3)),
                 1, 5
-            )
+        )
         end
-
+        
         local walls = pipe.new
             + {wallHeight.A == 0 and {} or pipe.new * makeWallA(fz(guidelines.l))(wallGuidelines[1]) * pipe.select(1)}
             + {wallHeight.B == 0 and {} or pipe.new * makeWallB(fz(guidelines.r))(wallGuidelines[2]) * pipe.select(1)}
@@ -529,21 +529,21 @@ local updateFn = function()
             + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[5] * pipe.map(makePaving(fz(guidelines.c))) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
             + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[6] * pipe.map(makePaving(fz(guidelines.c))) * pipe.map(pipe.select(1)) * pipe.flatten() or {}}
         
-            return
+        return
             pipe.new
             * {
                 edgeLists = {pipe.new * {arcs} * station.prepareEdges * trackBuilder.nonAligned()},
                 terrainAlignmentLists = polys,
                 models = walls * pipe.flatten(),
-                groundFaces = pipe.new 
-                    / tdp.slotGen(wallHeight.A, terrainGuidelines[1], "inf", "mid")
-                    / tdp.slotGen(wallHeight.B, terrainGuidelines[2], "inf", "mid")
-                    / tdp.slotGen(wallHeight.A, terrainGuidelines[3], "mid", "sup")
-                    / tdp.slotGen(wallHeight.B, terrainGuidelines[4], "mid", "sup")
-                    / tdp.slotGen(wallHeight.A, terrainGuidelines[5], "inf", "mid")
-                    / tdp.slotGen(wallHeight.B, terrainGuidelines[6], "inf", "mid")
-                    * pipe.flatten()
-                    * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
+                groundFaces = pipe.new
+                / tdp.slotGen(wallHeight.A, terrainGuidelines[1], "inf", "mid")
+                / tdp.slotGen(wallHeight.B, terrainGuidelines[2], "inf", "mid")
+                / tdp.slotGen(wallHeight.A, terrainGuidelines[3], "mid", "sup")
+                / tdp.slotGen(wallHeight.B, terrainGuidelines[4], "mid", "sup")
+                / tdp.slotGen(wallHeight.A, terrainGuidelines[5], "inf", "mid")
+                / tdp.slotGen(wallHeight.B, terrainGuidelines[6], "inf", "mid")
+                * pipe.flatten()
+                * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
             }
             * station.setHeight(func.seq(-10, 15)[params.height + 1])
     end
