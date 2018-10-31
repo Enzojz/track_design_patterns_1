@@ -10,6 +10,7 @@ local tdp = require "track_design_patterns"
 local math = math
 local pi = math.pi
 local abs = math.abs
+local unpack = table.unpack
 
 local rList = {tdp.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 18}
 local slopeList = {15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100}
@@ -239,7 +240,7 @@ local updateFn = function()
             * pipe.map(
                 pipe.map(
                     function(seg)
-                        local inf, sup = table.unpack(seg.rad)
+                        local inf, sup = unpack(seg.rad)
                         local zs = {
                             coor.transZ(fz.surface(inf).z),
                             coor.transZ(fz.surface(sup).z),

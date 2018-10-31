@@ -14,6 +14,7 @@ local pi = math.pi
 local atan = math.atan
 local cos = math.cos
 local sin = math.sin
+local unpack = table.unpack
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local rList = {tdp.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
@@ -231,7 +232,7 @@ local updateFn = function()
                 * func.seqMap({0, nbTracks - 1}, function(n) return
                     func.seqMap({0, #limits * 2 - 1}, function(i) return
                         func.map(signalPattern(n + 1, i + 1), function(p)
-                            local isLeft, pos = table.unpack(p)
+                            local isLeft, pos = unpack(p)
                             return {
                                 edge = n * #limits * 2 + i,
                                 param = pos,

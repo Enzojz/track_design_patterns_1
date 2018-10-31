@@ -10,6 +10,7 @@ local pi = math.pi
 local abs = math.abs
 local ceil = math.ceil
 local floor = math.floor
+local unpack = table.unpack
 
 tdp.infi = 1e8
 
@@ -320,7 +321,7 @@ local biLatCoords = function(length, from, to)
     return function(l, ...)
         local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(abs((from(l) - to(l)) * l.r))
         local rst = pipe.new * {l, ...}
-        return table.unpack(
+        return unpack(
             func.map(rst,
                 function(s)
                     local radF, radT = from(s), to(s)

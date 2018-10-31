@@ -26,6 +26,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --]]
 local pipe = {}
+local table = table
 
 function pipe.fold(init, fun)
     return function(ls)

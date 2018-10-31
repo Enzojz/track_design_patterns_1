@@ -15,6 +15,7 @@ local acos = math.acos
 local cos = math.cos
 local sin = math.sin
 local tan = math.tan
+local unpack = table.unpack
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local wallList = {
@@ -149,7 +150,7 @@ local updateFn = function()
             r = arc.byOR(coor.xy(r, 0), r),
         }
         
-        local dy, ept, vec, ipt = table.unpack(cot < 5 and
+        local dy, ept, vec, ipt = unpack(cot < 5 and
             pipe.exec * function()
                 local rad = acos(1 - distance * 0.5 / r)
                 local vec = coor.xyz(sin(rad), cos(rad), 0)
@@ -371,7 +372,7 @@ local updateFn = function()
         local polyGen = tdp.polyGen(slope)
         
         local polys = station.mergePoly(
-            table.unpack(
+            unpack(
                 terrainGuidelines[1] * pipe.map(function(g) return polyGen(wallHeight.A, wallHeight.B, g, retriveWall.A(wallHeightList), "mid", "sup") end)
                 + terrainGuidelines[2] * pipe.map(function(g) return polyGen(wallHeight.B, wallHeight.A, g, retriveWall.B(wallHeightList), "mid", "sup") end)
                 + terrainGuidelines[3] * pipe.map(function(g) return polyGen(wallHeight.B, wallHeight.A, g, retriveWall.B(wallHeightList), "inf", "mid") end)

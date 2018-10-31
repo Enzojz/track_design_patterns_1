@@ -431,7 +431,7 @@ local updateFn = function()
                 * func.seqMap({0, nbTracks - 1}, function(n) return
                     func.seqMap({0, #limits * 2 - 1}, function(i) return
                         func.map(signalPattern(n + 1, i + 1), function(p)
-                            local isLeft, pos = table.unpack(p)
+                            local isLeft, pos = unpack(p)
                             return {
                                 edge = n * #limits * 2 + i,
                                 param = pos,

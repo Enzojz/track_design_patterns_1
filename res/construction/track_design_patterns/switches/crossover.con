@@ -16,6 +16,7 @@ local cos = math.cos
 local sin = math.sin
 local tan = math.tan
 local sqrt = math.sqrt
+local unpack = table.unpack
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local wallList = {
@@ -142,7 +143,7 @@ local updateFn = function()
         
         local isSimple = (cot == 4) or (cot == 5 and slope > 0.06 and distance == 5)
         
-        local x, y, vec, f = table.unpack(isSimple and
+        local x, y, vec, f = unpack(isSimple and
             pipe.exec * function()
                 local x = distance * 0.5
                 local y = sqrt(r * distance - distance * distance * 0.5)
