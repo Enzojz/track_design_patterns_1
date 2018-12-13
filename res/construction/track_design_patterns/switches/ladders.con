@@ -412,15 +412,16 @@ end
 
 function data()
     return {
-        type = "RAIL_DEPOT",
+        type = "ASSET_DEFAULT",
         description = {
             name = _("Track ladders"),
             description = _("Track ladders used to form a shunting yard or depot.")
         },
+        categories = { "track_design_patterns" },
         availability = {
             yearFrom = 1850
         },
-        -- buildMode = "SINGLE",
+        buildMode = "MULTI",
         -- categories = {"misc"},
         order = 27227,
         skipCollision = true,

@@ -27,6 +27,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 --]]
 local func = {}
 local table = table
+local unpack = table.unpack
 
 func.pi = require "track_design_patterns/pipe"
 

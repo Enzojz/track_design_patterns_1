@@ -332,7 +332,6 @@ local updateFn = function()
                     station.newModel(mRoofFenceF .. "_br.mdl", coor.transZ(-0.5), tdp.fitModel2D(6, 0.5)(false)(false, false)(sizeF))
                 }
             end)
-        
         return pipe.new
             * {
                 edgeLists = {
@@ -375,14 +374,16 @@ end
 
 function data()
     return {
-        type = "RAIL_DEPOT",
+        type = "ASSET_DEFAULT",
         description = {
             name = _("Compact Tunnel entry"),
             description = _("A compact tunnel entry")
         },
+        categories = { "track_design_patterns" },
         availability = {
             yearFrom = 1860
         },
+        buildMode = "MULTI",
         order = 27229,
         skipCollision = true,
         autoRemovable = false,

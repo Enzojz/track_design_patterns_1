@@ -1,7 +1,7 @@
 ﻿function data()
     return {
         info = {
-            minorVersion = 5,
+            minorVersion = 6,
             severityAdd = "NONE",
             severityRemove = "CRITICAL",
             name = _("name"),
@@ -23,6 +23,6 @@
                 },
             },
             tags = {"Bridge", "Track", "Wall", "Track Assert", "Train Depot", "Train Station", "Tunnel"},
-        },
+        }
     }
 end

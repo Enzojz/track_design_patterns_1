@@ -552,15 +552,16 @@ end
 
 function data()
     return {
-        type = "RAIL_DEPOT",
+        type = "ASSET_DEFAULT",
         description = {
             name = _("Switches"),
             description = _("Switch on one track or switch group on many tracks.")
         },
+        categories = { "track_design_patterns" },
         availability = {
             yearFrom = 1850
         },
-        -- buildMode = "SINGLE",
+        buildMode = "MULTI",
         -- categories = {"misc"},
         order = 27225,
         skipCollision = true,

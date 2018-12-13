@@ -503,7 +503,8 @@ local updateFn = function()
                     }
                 end
             ),
-            snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true}
+            snap = pipe.new / {false, false} / {false, false} / {true, false} / {false, true},
+            freezenNodes = true
         }
         
         local streetInter = hasIntersection
@@ -517,7 +518,7 @@ local updateFn = function()
                 end,
                 snap = pipe.new / {false, false} / {false, true}
             }
-            or {edge = pipe.new, snap = pipe.new}
+            or {edge = pipe.new, snap = pipe.new, freezenNodes = true}
         
         local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
         
@@ -786,14 +787,16 @@ end
 
 function data()
     return {
-        type = "RAIL_DEPOT",
+        type = "ASSET_DEFAULT",
         description = {
             name = _("Road stacking over tracks"),
             description = _("One road stacking over one or many tracks with fix radious and signaling spacing.")
         },
+        categories = { "track_design_patterns" },
         availability = {
             yearFrom = 1850
         },
+        buildMode = "MULTI",
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27219,

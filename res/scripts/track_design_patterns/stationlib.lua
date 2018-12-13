@@ -200,7 +200,8 @@ end
 stationlib.prepareEdges = function(edges)
     return {
         edges = edges * pipe.mapFlatten(pipe.select("edge")) * pipe.map(pipe.map(coor.vec2Tuple)) * coor.make,
-        snapNodes = snapNodes(edges)
+        snapNodes = snapNodes(edges),
+        freeNodes = func.fold(edges, func.seq(0, #func.mapFlatten(edges, pipe.select("edge")) * 2 - 1), function(f, e) return e.freezenNodes and {} or f end)
     }
 end
 
@@ -259,6 +260,7 @@ stationlib.mergeEdges = function(edges)
     return {
         edge = func.mapFlatten(edges, pipe.select("edge")),
         snap = func.mapFlatten(edges, pipe.select("snap")),
+        freezenNodes = func.fold(edges, false, function(f, e) return e.freezenNodes or f end)
     }
 end
 

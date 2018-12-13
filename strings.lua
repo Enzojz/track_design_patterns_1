@@ -10,7 +10,7 @@ local descEN = [[
     * Walls at sides of tracks, including type, height, distance to track, and height variation to avoid Zig-Zags when you want to make a transition of walls of different height 
     * Automatically calculated terrain which is impossible to archive by normal constructions
     
-    === Six patterns are found in Railway depot menu ===
+    === Six patterns are found in Asset menu category "track_design_patterns" ===
     1. Parallel tracks
     2. Underground parallel tracks
     3. Compact tunnel entry
@@ -76,6 +76,11 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.6
+    * Fixed crash in certain parameters (with support from the Final Patch)
+    * All tracks are modifiable free edges after construction (with support from the Final Patch)
+    * Change of menu entry from Rail Depot to Asset/track_design_patterns
+    * Crash under campaign mode should have been fixed
     1.5
     * Rework on terrain implementation to have zig-zag-less and smooth terrain cutting
     * New thinner and realistic wall models
@@ -170,6 +175,11 @@ local descZH = [[
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.6
+    * 修正了一些特定参数下的游戏崩溃问题（需要Final Patch的支持）
+    * 所有的轨道在建设完成后都可以自由修改（需要Final Patch的支持）
+    * 菜单入口移至 资产/track_design_patterns 下
+    * 战役模式下的崩溃应该被修复了
     1.5
     * 重写了修改地面的方法，消除了毛刺和其他视觉错误
     * 新的更真实的墙面模型

@@ -362,11 +362,12 @@ end
 
 function data()
     return {
-        type = "RAIL_DEPOT",
+        type = "ASSET_DEFAULT",
         description = {
             name = _("Crossover"),
             description = _("Crossover switch group.")
         },
+        categories = { "track_design_patterns" },
         availability = {
             yearFrom = 1850
         },

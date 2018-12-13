@@ -253,14 +253,16 @@ end
 
 function data()
     return {
-        type = "RAIL_DEPOT",
+        type = "ASSET_DEFAULT",
         description = {
             name = _("Underground tracks"),
             description = _("Underground tracks with fix radious and signaling spacing.")
         },
+        categories = { "track_design_patterns" },
         availability = {
             yearFrom = 1860
         },
+        buildMode = "MULTI",
         -- buildMode = "SINGLE",
         -- categories = {"misc"},
         order = 27230,
