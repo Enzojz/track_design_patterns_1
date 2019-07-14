@@ -76,6 +76,8 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.7
+    * Added switch to toggle off/on free tracks
     1.6
     * Fixed crash in certain parameters (with support from the Final Patch)
     * All tracks are modifiable free edges after construction (with support from the Final Patch)
@@ -175,6 +177,8 @@ local descZH = [[
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.7
+    * 增加了可修改轨道的选项
     1.6
     * 修正了一些特定参数下的游戏崩溃问题（需要Final Patch的支持）
     * 所有的轨道在建设完成后都可以自由修改（需要Final Patch的支持）
@@ -370,6 +374,7 @@ function data()
             ["No Street"] = "无",
             ["Road Type"] = "马路类型",
             ["Intersection"] = "岔路口",
+            ["Free tracks"] = "可以修改的轨道",
             ["Road stacking over tracks"] = "悬于轨道之上的马路",
             ["One road stacking over one or many tracks with fix radious and signaling spacing."] = "一组或一条带有固定半径和信号机间距的轨道结构，结构上层是马路"
         },

@@ -111,6 +111,12 @@ local function params()
             name = _("Altitude Adjustment") .. "(m)",
             values = func.seqMap({-10, 15}, tostring),
             defaultIndex = 10
+        },
+        {
+            key = "freeNodes",
+            name = _("Free tracks"),
+            values = {_("No"), _("Yes")},
+            defaultIndex = 0
         }
     }
 end
@@ -345,7 +351,7 @@ local updateFn = function()
         return
             pipe.new
             * {
-                edgeLists = {pipe.new * {edge} * station.prepareEdges * trackBuilder.nonAligned()},
+                edgeLists = {pipe.new * {edge} * (station.prepareEdges(params.freeNodes == 1 or false)) * trackBuilder.nonAligned()},
                 terrainAlignmentLists = polys,
                 models = walls * pipe.flatten(),
                 groundFaces =

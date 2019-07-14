@@ -261,6 +261,12 @@ local function params()
             name = _("Altitude Adjustment") .. "(m)",
             values = func.seqMap({-15, 5}, tostring),
             defaultIndex = 5
+        },
+        {
+            key = "freeNodes",
+            name = _("Free tracks"),
+            values = {_("No"), _("Yes")},
+            defaultIndex = 0
         }
     }
 end
@@ -739,9 +745,9 @@ local updateFn = function()
             pipe.new
             * {
                 edgeLists = pipe.new
-                / (pipe.new * arcs * station.prepareEdges * trackBuilder.nonAligned())
-                / (pipe.new * arcsExt * station.prepareEdges * trackBuilder.normal())
-                / (not withoutSt and pipe.new * {street, streetInter} * station.prepareEdges * streetBuilder.nonAligned() or nil)
+                / (pipe.new * arcs * (station.prepareEdges(params.freeNodes == 1 or false)) * trackBuilder.nonAligned())
+                / (pipe.new * arcsExt * (station.prepareEdges(params.freeNodes == 1 or false)) * trackBuilder.normal())
+                / (not withoutSt and pipe.new * {street, streetInter} * (station.prepareEdges(params.freeNodes == 1 or false)) * streetBuilder.nonAligned() or nil)
                 ,
                 edgeObjects = length <= signalSpacing and {} or pipe.new
                 * func.seqMap({0, nbTracks + params.extTrack - 1}, function(n) return
