@@ -376,6 +376,7 @@ function data()
             ["Intersection"] = "岔路口",
             ["Free tracks"] = "可以修改的轨道",
             ["Road stacking over tracks"] = "悬于轨道之上的马路",
+            ["Not build"] = "不建造",
             ["One road stacking over one or many tracks with fix radious and signaling spacing."] = "一组或一条带有固定半径和信号机间距的轨道结构，结构上层是马路"
         },
         de = {

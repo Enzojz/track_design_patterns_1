@@ -226,7 +226,7 @@ local updateFn = function()
             * {
                 edgeLists =
                 {
-                    pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * (station.prepareEdges(params.freeNodes == 1 or false)) * trackBuilder.tunnel("railroad_old.lua"),
+                    pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.tunnel("railroad_old.lua"),
                 },
                 edgeObjects = length <= signalSpacing and {} or pipe.new
                 * func.seqMap({0, nbTracks - 1}, function(n) return

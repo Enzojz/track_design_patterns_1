@@ -116,7 +116,7 @@ local function params()
         {
             key = "freeNodes",
             name = _("Free tracks"),
-            values = {_("No"), _("Yes")},
+            values = {_("No"), _("Yes"), _("Not build")},
             defaultIndex = 0
         }
     }
@@ -341,10 +341,10 @@ local updateFn = function()
         return pipe.new
             * {
                 edgeLists = {
-                    pipe.new * func.map({edges[1]}, station.mergeEdges) * (station.prepareEdges(params.freeNodes == 1 or false)) * trackBuilder.nonAligned(),
-                    pipe.new * func.map({edges[2]}, station.mergeEdges) * (station.prepareEdges(params.freeNodes == 1 or false)) * trackBuilder.tunnel("void_entry.lua"),
+                    pipe.new * func.map({edges[1]}, station.mergeEdges) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.nonAligned(),
+                    pipe.new * func.map({edges[2]}, station.mergeEdges) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.tunnel("void_entry.lua"),
                     pipe.new / {} / func.map({edges[3]}, station.mergeEdges) / {station.mergeEdges({edges[3][1]})} / {station.mergeEdges({edges[3][2]})}
-                    * pipe.select(params.paraTracks + 1) * (station.prepareEdges(params.freeNodes == 1 or false)) * trackBuilder.normal(),
+                    * pipe.select(params.paraTracks + 1) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.normal(),
                 }
                 ,
                 models = walls * pipe.flatten(),
