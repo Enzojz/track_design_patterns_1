@@ -8,7 +8,7 @@ local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
 local tdpp = require "tdp_planner"
-
+local dump = require "luadump"
 local math = math
 local abs = math.abs
 local pi = math.pi
@@ -65,7 +65,7 @@ local function params()
                 defaultIndex = 0
             }
         }
-        + tdp.trackType 
+        + tdp.trackType
         + {
             {
                 key = "nbTracks",
@@ -213,13 +213,12 @@ local updateFn = function()
         local trackBuilder = trackEdge.builder(catenary, trackType)
         
         local nbTracks = params.nbTracks + 1
-        
         local radius = params.overrideParams and params.overrideParams.radius or (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local length = params.overrideParams and params.overrideParams.length or (params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000)
-
+        
         local slopeA = params.overrideParams and params.overrideParams.slopeA or (slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001)
         local slopeB = params.overrideParams and params.overrideParams.slopeB or (params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001)
-
+        
         length = length > 0 and length or 1
         local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
         
@@ -462,19 +461,26 @@ local updateFn = function()
         )
         end
         
-
         if (params.showPreview) then
             return {
-                models = {},
+                models = {
+                    {
+                        id = "asset/icon/marker_question.mdl",
+                        transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+                    }
+                },
                 cost = 0,
                 bulldozeCost = 0,
                 maintenanceCost = 0,
                 terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
-                groundFaces = pipe.new
-                    / slotGen(wallHeight.A, terrainGuidelines[1])
-                    / slotGen(wallHeight.B, terrainGuidelines[2])
-                    * pipe.flatten()
-                    * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "fill_red"}}} end)
+                groundFaces = guidelines
+                * pipe.map(pipe.map(
+                    function(g) return tdp.generatePolyArc({g + 2.5, g + (-2.5)}, "inf", "sup")(0, 0)
+                        * station.projectPolys(coor.I())
+                    end))
+                * pipe.flatten()
+                * pipe.flatten()
+                * pipe.map(function(poly) return {face = poly, modes = {{type = "FILL", key = "fill_red"}}} end)
             }
         elseif (params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) then
             local markers = tdpp.findMarkers(params.overrideGr)

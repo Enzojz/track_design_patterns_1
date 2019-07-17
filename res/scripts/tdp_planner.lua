@@ -164,10 +164,10 @@ local findCircle = function(posS, posE, vecS, vecE, r)
             local posS = posSn:withZ(posS.z + dz * lengthS / (lengthS + length + lengthE))
             local posE = posEn:withZ(posE.z - dz * lengthE / (lengthS + length + lengthE))
             return {
-                f = f,
+                f = -f,
                 radius = r,
-                length = length,
-                slope = length - 10, (posE.z - posS.z) / length,
+                length = length - 10,
+                slope = (posE.z - posS.z) / length,
                 vec = vecS,
                 pos = posS
             }, posS, posE, true, true
@@ -176,10 +176,10 @@ local findCircle = function(posS, posE, vecS, vecE, r)
             local length = abs(rad * radius)
             local f = rad > 0 and 1 or -1
             return {
-                f = f,
+                f = -f,
                 radius = radius,
-                length = length,
-                slope = length - 10, (posE.z - posS.z) / length,
+                length = length - 10,
+                slope = (posE.z - posS.z) / length,
                 vec = vecS,
                 pos = posS
             }, posS, posE, false, false
@@ -219,8 +219,8 @@ local solve = function(s, e, r)
             return {
                 f = 1,
                 radius = tdp.infi,
-                length = length,
-                slope = length - 10, (posE.z - posS.z) / length,
+                length = length - 10,
+                slope = (posE.z - posS.z) / length,
                 vec = (posE - posS):normalized(),
                 pos = posS
             }
@@ -228,9 +228,9 @@ local solve = function(s, e, r)
         if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
             local ret, posCS, posCE, extS, extE = findCircle(posS, posE, vecS, vecE, r)
             return pipe.new
-                / (extS and straightResult(posCS, posS) or {})
+                -- / (extS and straightResult(posCS, posS) or {})
                 / ret
-                / (extE and straightResult(posCE, posE) or {})
+                -- / (extE and straightResult(posCE, posE) or {})
                 * pipe.filter(pipe.noop())
         -- elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then
         -- elseif ((vecXS:dot(vecS) < 0 and vecXE:dot(vecE) > 0)) then
@@ -245,8 +245,8 @@ local solve = function(s, e, r)
                 {
                     f = 1,
                     radius = tdp.infi,
-                    length = length,
-                    slope = length - 10, (posE.z - posS.z) / length,
+                    length = length - 10,
+                    slope = (posE.z - posS.z) / length,
                     pos = posS,
                     vec = vecS
                 }
@@ -328,20 +328,18 @@ tdpp.updatePlanner = function(params, markers)
                 {
                     showPreview = true,
                     overrideParams = {
-                        radius = r.radius,
+                        radius = r.f * r.radius,
                         length = r.length,
                         slope = r.slope
                     }
                 })
             local transf = quat.byVec(coor.xyz(0, 1, 0), (r.vec):withZ(0)):mRot() * coor.trans(r.pos)
-            dump()({con, previewParams, transf})
             local id = game.interface.buildConstruction(
                 con,
                 previewParams,
                 transf
             )
-            dump()({id, game.interface.getPlayer()})
-            -- game.interface.setPlayer(id, game.interface.getPlayer())
+            game.interface.setPlayer(id, game.interface.getPlayer())
         end)
     else
         local pre = #markers == 2 and retriveParams(markers)(params) or findPreviewInstance(params)
