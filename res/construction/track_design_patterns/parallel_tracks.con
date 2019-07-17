@@ -7,6 +7,7 @@ local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
+local tdpp = require "tdp_planner"
 
 local math = math
 local abs = math.abs
@@ -36,135 +37,164 @@ local wallTransList = {
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
-    return tdp.trackType + {
+    return
+        pipe.new +
         {
-            key = "nbTracks",
-            name = _("Number of tracks"),
-            values = func.seqMap({1, 10}, tostring),
-            defaultIndex = 1
-        },
-        {
-            key = "sign",
-            name = sp,
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "radius",
-            name = _("Radius") .. "(m)",
-            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
-            defaultIndex = 0
-        },
-        {
-            key = "slopeSignA",
-            name = sp .. "\n" .. _("Slope"),
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "slopeA",
-            name = _("Begin") .. "(‰)",
-            values = func.map(slopeList, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "slopeSignB",
-            name = "",
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "slopeB",
-            name = _("End") .. "(‰)",
-            values = pipe.new + {_("Sync")} + func.map(slopeList, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "lengthM",
-            name = sp .. "\n" .. _("Length") .. " \n\n×1000m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "lengthC",
-            name = "×100m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 1
-        },
-        {
-            key = "lengthD",
-            name = "×10m",
-            values = func.seqMap({0, 9}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "signalSpacing",
-            name = sp .. "\n" .. _("Signal Spacing"),
-            values = {_("None"), _("Moving Block"), "100", "200", "400", "600", "800", "1000", "1500"},
-            defaultIndex = 4
-        
-        },
-        {
-            key = "signalPattern",
-            name = _("Signal Pattern"),
-            values = {"↓↑↓↑", "↑↓↑↓", "↓↓↑↑", "↑↑↓↓", "↓↓↓↓", "↑↑↑↑", _("↕↕↕↕")},
-            defaultIndex = 0,
-        },
-        {
-            key = "wallAHeight",
-            name = sp .. "\n" .. _("Wall A") .. "\n" .. _("Height") .. "(m)",
-            values = pipe.new * {"↓", _("None")} + func.seqMap({1, 15}, tostring),
-            defaultIndex = 1
-        },
-        {
-            key = "wallAVar",
-            name = _("Variance") .. "(m)",
-            values = func.seqMap({-12, 12}, tostring),
-            defaultIndex = 12
-        },
-        {
-            key = "wallAType",
-            name = _("Type"),
-            values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
-            defaultIndex = 0
-        },
-        {
-            key = "wallBHeight",
-            name = sp .. "\n" .. _("Wall B") .. "\n" .. _("Height") .. "(m)",
-            values = pipe.new * {_("Sync"), "↓", _("None")} + func.seqMap({1, 15}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "wallBVar",
-            name = _("Variance") .. "(m)",
-            values = pipe.new * {_("Sync")} + func.seqMap({-12, 12}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "wallBType",
-            name = _("Type"),
-            values = {_("Sync"), _("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
-            defaultIndex = 0
-        },
-        {
-            key = "wallOffset",
-            name = sp .. "\n" .. _("Wall-Track distance"),
-            values = func.seqMap({0, 8}, function(n) return tostring(n * 0.5) end),
-            defaultIndex = 1
-        },
-        {
-            key = "height",
-            name = _("Altitude Adjustment") .. "(m)",
-            values = func.seqMap({-10, 15}, tostring),
-            defaultIndex = 10
-        },
-        {
-            key = "freeNodes",
-            name = _("Free tracks"),
-            values = {_("No"), _("Yes"), _("Not build")},
-            defaultIndex = 0
+            {
+                key = "override",
+                name = _("Use Planner"),
+                values = {_("No"), _("Preview/Refresh"), _("Build"), _("Clear")},
+                defaultIndex = 0
+            },
+            {
+                key = "overrideGr",
+                name = _("Planner Group"),
+                values = func.seqMap({1, 5}, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "radiusOverride",
+                name = _("Radius Source"),
+                values = {_("Max"), _("Menu")},
+                defaultIndex = 0
+            },
+            {
+                key = "overrideGr",
+                name = _("Planner Group"),
+                values = func.seqMap({1, 5}, tostring),
+                defaultIndex = 0
+            }
         }
-    }
+        + tdp.trackType 
+        + {
+            {
+                key = "nbTracks",
+                name = _("Number of tracks"),
+                values = func.seqMap({1, 10}, tostring),
+                defaultIndex = 1
+            },
+            {
+                key = "sign",
+                name = sp,
+                values = {"+", "-"},
+                defaultIndex = 0
+            },
+            {
+                key = "radius",
+                name = _("Radius") .. "(m)",
+                values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+                defaultIndex = 0
+            },
+            {
+                key = "slopeSignA",
+                name = sp .. "\n" .. _("Slope"),
+                values = {"+", "-"},
+                defaultIndex = 0
+            },
+            {
+                key = "slopeA",
+                name = _("Begin") .. "(‰)",
+                values = func.map(slopeList, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "slopeSignB",
+                name = "",
+                values = {"+", "-"},
+                defaultIndex = 0
+            },
+            {
+                key = "slopeB",
+                name = _("End") .. "(‰)",
+                values = pipe.new + {_("Sync")} + func.map(slopeList, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "lengthM",
+                name = sp .. "\n" .. _("Length") .. " \n\n×1000m",
+                values = func.seqMap({0, 9}, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "lengthC",
+                name = "×100m",
+                values = func.seqMap({0, 9}, tostring),
+                defaultIndex = 1
+            },
+            {
+                key = "lengthD",
+                name = "×10m",
+                values = func.seqMap({0, 9}, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "signalSpacing",
+                name = sp .. "\n" .. _("Signal Spacing"),
+                values = {_("None"), _("Moving Block"), "100", "200", "400", "600", "800", "1000", "1500"},
+                defaultIndex = 4
+            
+            },
+            {
+                key = "signalPattern",
+                name = _("Signal Pattern"),
+                values = {"↓↑↓↑", "↑↓↑↓", "↓↓↑↑", "↑↑↓↓", "↓↓↓↓", "↑↑↑↑", _("↕↕↕↕")},
+                defaultIndex = 0,
+            },
+            {
+                key = "wallAHeight",
+                name = sp .. "\n" .. _("Wall A") .. "\n" .. _("Height") .. "(m)",
+                values = pipe.new * {"↓", _("None")} + func.seqMap({1, 15}, tostring),
+                defaultIndex = 1
+            },
+            {
+                key = "wallAVar",
+                name = _("Variance") .. "(m)",
+                values = func.seqMap({-12, 12}, tostring),
+                defaultIndex = 12
+            },
+            {
+                key = "wallAType",
+                name = _("Type"),
+                values = {_("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
+                defaultIndex = 0
+            },
+            {
+                key = "wallBHeight",
+                name = sp .. "\n" .. _("Wall B") .. "\n" .. _("Height") .. "(m)",
+                values = pipe.new * {_("Sync"), "↓", _("None")} + func.seqMap({1, 15}, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "wallBVar",
+                name = _("Variance") .. "(m)",
+                values = pipe.new * {_("Sync")} + func.seqMap({-12, 12}, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "wallBType",
+                name = _("Type"),
+                values = {_("Sync"), _("Concrete"), _("Stone brick"), _("Arch"), _("Noise barrier")},
+                defaultIndex = 0
+            },
+            {
+                key = "wallOffset",
+                name = sp .. "\n" .. _("Wall-Track distance"),
+                values = func.seqMap({0, 8}, function(n) return tostring(n * 0.5) end),
+                defaultIndex = 1
+            },
+            {
+                key = "height",
+                name = _("Altitude Adjustment") .. "(m)",
+                values = func.seqMap({-10, 15}, tostring),
+                defaultIndex = 10
+            },
+            {
+                key = "freeNodes",
+                name = _("Free tracks"),
+                values = {_("No"), _("Yes"), _("Not build")},
+                defaultIndex = 0
+            }
+        }
 end
 
 local function defaultParams(param)
@@ -183,13 +213,15 @@ local updateFn = function()
         local trackBuilder = trackEdge.builder(catenary, trackType)
         
         local nbTracks = params.nbTracks + 1
-        local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
-        local length = params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000
+        
+        local radius = params.overrideParams and params.overrideParams.radius or (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
+        local length = params.overrideParams and params.overrideParams.length or (params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000)
+
+        local slopeA = params.overrideParams and params.overrideParams.slopeA or (slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001)
+        local slopeB = params.overrideParams and params.overrideParams.slopeB or (params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001)
+
         length = length > 0 and length or 1
         local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
-        
-        local slopeA = slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001
-        local slopeB = params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001
         
         local offsets = tdp.buildCoors(nbTracks, nbTracks)
         local initRad = radius > 0 and pi or 0
@@ -430,6 +462,27 @@ local updateFn = function()
         )
         end
         
+
+        if (params.showPreview) then
+            return {
+                models = {},
+                cost = 0,
+                bulldozeCost = 0,
+                maintenanceCost = 0,
+                terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
+                groundFaces = pipe.new
+                    / slotGen(wallHeight.A, terrainGuidelines[1])
+                    / slotGen(wallHeight.B, terrainGuidelines[2])
+                    * pipe.flatten()
+                    * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "fill_red"}}} end)
+            }
+        elseif (params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) then
+            local markers = tdpp.findMarkers(params.overrideGr)
+            if (#markers == 2 or params.override > 1) then
+                return tdpp.updatePlanner(params, markers)
+            end
+        end
+        
         return
             pipe.new
             * {
@@ -474,7 +527,7 @@ function data()
             name = _("Parallel tracks"),
             description = _("One or many tracks with fix radious and signaling spacing.")
         },
-        categories = { "track_design_patterns" },
+        categories = {"track_design_patterns"},
         availability = {
             yearFrom = 1850
         },

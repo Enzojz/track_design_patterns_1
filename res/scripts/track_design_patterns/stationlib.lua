@@ -428,6 +428,14 @@ function stationlib.mergePoly(...)
         end
 end
 
-
+stationlib.pureParams = function(pa)
+    local params = {}
+    for key,value in pairs(pa) do
+        if (key ~= "seed") then
+            params[key] = value
+        end
+    end
+    return params
+end
 
 return stationlib

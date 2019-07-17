@@ -31,11 +31,12 @@ local func = require "track_design_patterns/func"
 local coor = {}
 coor.make = laneutil.makeLanes
 
+local unpack = table.unpack
+local math = math
 local sin = math.sin
 local cos = math.cos
 local sqrt = math.sqrt
 local rad = math.rad
-local unpack = table.unpack
 
 local vecXyMeta = {
     __add = function(lhs, rhs)
@@ -69,6 +70,8 @@ local vecXyzAvg = function(self, ...)
     return func.fold(pts, self, function(l, r) return l + r end) / (#pts + 1)
 end
 
+local vecXyCross = function(self, other) return self.x * other.y - self.y * other.x end
+
 function coor.xy(x, y)
     local result = {
         x = x,
@@ -78,7 +81,8 @@ function coor.xy(x, y)
         normalized = vecXyNormalized,
         withZ = vecXyZ,
         avg = vecXyAvg,
-        dot = function(self, other) return self.x * other.x + self.y * other.y end
+        dot = function(self, other) return self.x * other.x + self.y * other.y end,
+        cross = vecXyCross
     }
     setmetatable(result, vecXyMeta)
     return result
@@ -129,7 +133,7 @@ function coor.xyz(x, y, z)
     local result = {
         x = x,
         y = y,
-        z = z,
+        z = z or 0,
         length = vecXyzLength,
         length2 = vecXyzLength2,
         normalized = vecXyzNormalized,
@@ -197,6 +201,48 @@ function coor.det(m)
         return func.fold(func.seq(1, #m), 0, function(r, c) return r + (c % 2 == 1 and 1 or -1) * m[1][c] * coor.det(mi(1, c)) end)
     end
     end
+end
+
+function coor.inv(m)
+    local dX = coor.det(m)
+    
+    local miX = coor.minor(m)
+    local mXI = func.mapFlatten(func.seq(1, 4),
+        function(l)
+            return func.seqMap({1, 4}, function(c)
+                return ((l + c) % 2 == 0 and 1 or -1) * coor.det(miX(c, l)) / dX
+            end)
+        end)
+    
+    return coor.I() * mXI
+end
+
+function coor.inv3(m)
+    local dX = coor.det(m)
+    
+    local miX = coor.minor(m)
+    local mXI = func.mapFlatten(func.seq(1, 3),
+        function(l)
+            return func.seqMap({1, 3}, function(c)
+                return ((l + c) % 2 == 0 and 1 or -1) * coor.det(miX(c, l)) / dX
+            end)
+        end)
+    
+    return mXI
+end
+
+function coor.decomposite(m)
+    local vecTrans = coor.xyz(m[13], m[14], m[15])
+    local sx = coor.xyz(m[1], m[2], m[3]):length()
+    local sy = coor.xyz(m[5], m[6], m[7]):length()
+    local sz = coor.xyz(m[9], m[10], m[11]):length()
+    local mRot = {
+        m[1] / sx, m[2] / sx, m[3] / sx, 0,
+        m[5] / sy, m[6] / sy, m[7] / sy, 0,
+        m[9] / sz, m[10] / sz, m[11] / sz, 0,
+        0, 0, 0, 1
+    }
+    return vecTrans, coor.I() * mRot, coor.xyz(sx, sy, sz)
 end
 
 function coor.apply(vec, trans)
