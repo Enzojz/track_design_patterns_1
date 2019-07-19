@@ -236,6 +236,7 @@ local updateFn = function()
         (slopeA == slopeB) and
             pipe.exec * function()
                 local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, slopeA * length))
+                
                 return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = slopeA} end
             end
             or
@@ -475,7 +476,7 @@ local updateFn = function()
                 terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
                 groundFaces = guidelines
                 * pipe.map(pipe.map(
-                    function(g) return tdp.generatePolyArc({g + 2.5, g + (-2.5)}, "inf", "sup")(0, 0)
+                    function(g) return tdp.generatePolyArc({g + 2.4, g + (-2.4)}, "inf", "sup")(0, 0)
                         * station.projectPolys(coor.I())
                     end))
                 * pipe.flatten()

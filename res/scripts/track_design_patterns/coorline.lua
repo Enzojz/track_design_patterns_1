@@ -1,9 +1,12 @@
 local coor = require "track_design_patterns/coor"
+
 local line = {}
+dump = require "luadump"
 
-
+local math = math
 local sin = math.sin
 local cos = math.cos
+local abs = math.abs
 
 -- line in form of
 -- a.x + b.y + 1 = 0, if c != 0
@@ -17,9 +20,15 @@ function line.new(a, b, c)
             c = 1,
             vector = line.vec
         }
+        or (a ~= 0) and {
+            a = 1,
+            b = b / a,
+            c = 0,
+            vector = line.vec
+        }
         or {
-            a = a,
-            b = b,
+            a = 0,
+            b = 1,
             c = 0,
             vector = line.vec
         }
@@ -50,6 +59,10 @@ function line.vec(l)
     return coor.xy(-l.b, l.a):normalized()
 end
 
+function line.pend(l, pt)
+    return line.byVecPt(coor.xy(l.a, l.b), pt)
+end
+
 function line.intersection(l1, l2)
     local a11 = l1.a
     local a12 = l1.b
@@ -58,14 +71,20 @@ function line.intersection(l1, l2)
     
     local b1 = -l1.c
     local b2 = -l2.c
+
+    local iidet = (a11 * a22 - a21 * a12)
     
-    local idet = 1 / (a11 * a22 - a21 * a12)
-    local c11 = a22 * idet
-    local c12 = -a12 * idet
-    local c21 = -a21 * idet
-    local c22 = a11 * idet
-    
-    return coor.xy(c11 * b1 + c12 * b2, c21 * b1 + c22 * b2)
+    if (abs(iidet) < 1e-8) then
+        return nil
+    else
+        local idet = 1 / iidet
+        local c11 = a22 * idet
+        local c12 = -a12 * idet
+        local c21 = -a21 * idet
+        local c22 = a11 * idet
+        
+        return coor.xy(c11 * b1 + c12 * b2, c21 * b1 + c22 * b2)
+    end
 end
 
 return line

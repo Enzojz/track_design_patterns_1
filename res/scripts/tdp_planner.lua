@@ -123,14 +123,14 @@ end
 local retriveInfo = function(info)
     if (info) then
         return {
-            radius = tonumber(info:match("R(%d+)")),
+            radius = tonumber(info:match("(%d+)")),
         }
     else
         return {}
     end
 end
 
-local findCircle = function(posS, posE, vecS, vecE, r)
+local function findCircle(posS, posE, vecS, vecE, r)
     local lnS = line.byVecPt(vecS, posS)
     local lnE = line.byVecPt(vecE, posE)
     local x = lnS - lnE
@@ -139,35 +139,29 @@ local findCircle = function(posS, posE, vecS, vecE, r)
     local dXE = (x - posE):length()
     
     if (abs(dXS / dXE - 1) < 0.005) then
-        local lnPS = line.byVecPt(vecS .. coor.rotZ(0.5 * pi), posS)
-        local lnPE = line.byVecPt(vecE .. coor.rotZ(0.5 * pi), posE)
+        local lnPS = line.pend(lnS, posS)
+        local lnPE = line.pend(lnE, posE)
         local o = lnPS - lnPE
-        local vecOS = o - posS:withZ(0)
-        local vecOE = o - posE:withZ(0)
+        local vecOS = o - posS
+        local vecOE = o - posE
         local radius = vecOS:length()
         local result = pipe.new
         if (r and radius > r) then
             local vecO = (x - o):normalized()
             o = o + vecO * (radius - r)
-            local lnPS = line.byVecPt(vecS .. coor.rotZ(0.5 * pi), o)
-            local lnPE = line.byVecPt(vecE .. coor.rotZ(0.5 * pi), o)
-            local posSn = lnPS - lnS
-            local posEn = lnPE - lnE
-            vecOS = o - posSn
-            vecOE = o - posEn
+            local lnPS = line.pend(lnS, o)
+            local lnPE = line.pend(lnE, o)
+            local posS = lnPS - lnS
+            local posE = lnPE - lnE
+            vecOS = o - posS
+            vecOE = o - posE
             local rad = asin(vecOS:normalized():cross(vecOE:normalized()))
-            local lengthS = (posSn - posS):withZ(0):length()
-            local lengthE = (posEn - posE):withZ(0):length()
             local length = abs(rad * r)
             local f = rad > 0 and 1 or -1
-            local dz = (posE - posS).z
-            local posS = posSn:withZ(posS.z + dz * lengthS / (lengthS + length + lengthE))
-            local posE = posEn:withZ(posE.z - dz * lengthE / (lengthS + length + lengthE))
             return {
                 f = -f,
                 radius = r,
-                length = length - 10,
-                slope = (posE.z - posS.z) / length,
+                length = length,
                 vec = vecS,
                 pos = posS
             }, posS, posE, true, true
@@ -178,18 +172,17 @@ local findCircle = function(posS, posE, vecS, vecE, r)
             return {
                 f = -f,
                 radius = radius,
-                length = length - 10,
-                slope = (posE.z - posS.z) / length,
+                length = length,
                 vec = vecS,
                 pos = posS
             }, posS, posE, false, false
         end
     else
-        if (dXS > dxE) then
-            local ret, posS, posE = findCircle(posS + vecS * (dXE - dXS), posE, vecS, vecE, r)
+        if (dXS > dXE) then
+            local ret, posS, posE = findCircle(posS + vecS * (dXS - dXE), posE, vecS, vecE, r)
             return ret, posS, posE, true, false
         else
-            local ret, posS, posE = findCircle(posS, posE + vecE * (dXS - dXE), vecS, vecE, r)
+            local ret, posS, posE = findCircle(posS, posE + vecE * (dXE - dXS), vecS, vecE, r)
             return ret, posS, posE, true, false
         end
     end
@@ -200,6 +193,11 @@ local solve = function(s, e, r)
     local posE, rotE, _ = coor.decomposite(e.transf)
     local vecS = coor.xyz(1, 0, 0) .. rotS
     local vecE = coor.xyz(1, 0, 0) .. rotE
+    posS = posS:withZ(0)
+    posE = posE:withZ(0)
+    vecS = vecS:withZ(0):normalized()
+    vecE = vecE:withZ(0):normalized() 
+    -- Work on horizon plan, recalculate Z at last
     local lnS = line.byVecPt(vecS, posS)
     local lnE = line.byVecPt(vecE, posE)
     local m = (posE + posS) * 0.5
@@ -219,8 +217,7 @@ local solve = function(s, e, r)
             return {
                 f = 1,
                 radius = tdp.infi,
-                length = length - 10,
-                slope = (posE.z - posS.z) / length,
+                length = length,
                 vec = (posE - posS):normalized(),
                 pos = posS
             }
@@ -228,25 +225,23 @@ local solve = function(s, e, r)
         if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
             local ret, posCS, posCE, extS, extE = findCircle(posS, posE, vecS, vecE, r)
             return pipe.new
-                -- / (extS and straightResult(posCS, posS) or {})
+                / (extS and straightResult(posCS, posS))
                 / ret
-                -- / (extE and straightResult(posCE, posE) or {})
-                * pipe.filter(pipe.noop())
+                / (extE and straightResult(posCE, posE))
         -- elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then
         -- elseif ((vecXS:dot(vecS) < 0 and vecXE:dot(vecE) > 0)) then
         end
     else
-        local lnPenE = line.byVecPt(lnS:vector():withZ(0) .. coor.rotZ(0.5 * pi), posE)
+        local lnPenE = line.pend(lnE, posE)
         local posP = lnPenE - lnS
         local vecEP = posE - posP
-        if (vecEP:length() < 1e-5) then
-            local length = vecES:withZ(0):length()
+        if (vecEP:length() < 1e-3) then
+            local length = vecES:length()
             return pipe.new /
                 {
                     f = 1,
                     radius = tdp.infi,
-                    length = length - 10,
-                    slope = (posE.z - posS.z) / length,
+                    length = length,
                     pos = posS,
                     vec = vecS
                 }
@@ -257,7 +252,7 @@ local solve = function(s, e, r)
             local ret1, posCS1, posCE1, extS1, extE1 = findCircle(posS, m, vecS, -vecT, r)
             local ret2, posCS2, posCE2, extS2, extE2 = findCircle(m, posE, vecT, vecE, r)
             return pipe.new
-                / (extS1 and straightResult(posCS1, posS) or {})
+                / (extS1 and straightResult(posCS1, posS))
                 / ret1
                 / (
                 (extE1 and extS2)
@@ -266,15 +261,12 @@ local solve = function(s, e, r)
                 (extE1 and not extS2)
                 and straightResult(posCE1, m)
                 or (
-                (not extE1 and extS2)
-                and straightResult(m, posCS2) or
-                {}
+                (not extE1 and extS2) and straightResult(m, posCS2)
                 )
                 )
                 )
                 / ret2
-                / (extE2 and straightResult(posCE2, posE) or {})
-                * pipe.filter(pipe.noop())
+                / (extE2 and straightResult(posCE2, posE))
         end
     end
 end
@@ -287,16 +279,32 @@ local retriveParams = function(markers, r)
     local posS, _, _ = coor.decomposite(s.transf)
     local posE, _, _ = coor.decomposite(e.transf)
     local pos = (posE + posS) * 0.5
-    local r = (posE - posS):length()
     
     local con = "parallel_tracks.con"
     local findPreviewsByMarker = function(params)
         return pipe.new
-            * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
+            * game.interface.getEntities({pos = {pos.x, pos.y}, radius = (posE - posS):length()})
             * pipe.map(game.interface.getEntity)
             * pipe.filter(function(data) return data.fileName and string.match(data.fileName, con) and data.params.showPreview and data.params.overrideGr == params.overrideGr end)
     end
-    return findPreviewsByMarker, con, solve(s, e, r)
+    
+    local results = solve(s, e, r) * pipe.filter(pipe.noop())
+
+    local totalLength = results * pipe.fold(0, function(sum, r) return sum + r.length end)
+    local results = results * pipe.fold({totalLength, pipe.new * {}}, function(result, seg)
+        local restLength, results = unpack(result)
+        return {
+            restLength - seg.length,
+            results / func.with(seg, {
+                pos = seg.pos:withZ(posE.z + restLength / totalLength * (posS.z - posE.z)),
+                vec = seg.vec:withZ(0):normalized(),
+                slopeA = (posE - posS).z / totalLength,
+                slopeB = (posE - posS).z / totalLength
+            })
+        }
+    end) * pipe.select(2)
+    
+    return findPreviewsByMarker, con, results
 end
 
 local refineParams = function(params, markers)
@@ -330,7 +338,8 @@ tdpp.updatePlanner = function(params, markers)
                     overrideParams = {
                         radius = r.f * r.radius,
                         length = r.length,
-                        slope = r.slope
+                        slopeA = r.slopeA,
+                        slopeB = r.slopeB
                     }
                 })
             local transf = quat.byVec(coor.xyz(0, 1, 0), (r.vec):withZ(0)):mRot() * coor.trans(r.pos)
@@ -344,20 +353,19 @@ tdpp.updatePlanner = function(params, markers)
     else
         local pre = #markers == 2 and retriveParams(markers)(params) or findPreviewInstance(params)
         if (params.override == 2) then
-            if (#pre == 1) then
-                local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
+            local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
+            func.forEach(pre, function(pre)
                 game.interface.upgradeConstruction(
-                    pre[1].id,
-                    pre[1].fileName,
-                    func.with(station.pureParams(pre[1].params),
+                    pre.id,
+                    pre.fileName,
+                    func.with(station.pureParams(pre.params),
                         {
                             override = 2,
                             showPreview = false,
                             isBuild = true,
-                            stationName = pre[1].name
                         })
             )
-            end
+            end)
         elseif (params.override == 3) then
             local _ = pre * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
         end
