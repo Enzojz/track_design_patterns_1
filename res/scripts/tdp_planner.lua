@@ -55,18 +55,6 @@ local findPreviewsByMarker = function(pos, r)
     end
 end
 
-tdpp.displace = function(config, trackCoords)
-    local tc = trackCoords * pipe.filter(pipe.noop())
-    local disp =
-        config.pattern and config.pattern.m and trackCoords[config.pattern.m]
-        or tc[(pipe.new
-        / function() return 1 end
-        / function() return ceil(#tc * 0.5) end
-        / function() return #tc end
-        * pipe.select(config.varRefPos + 2))()]
-    return station.setTransform(coor.trans(-disp))
-end
-
 local livetext = livetext("lato", false, "CF2F2F2")
 
 tdpp.updatePreview = function(models, groundFaces, radius, length, slopeA, slopeB, guideline)
@@ -78,7 +66,7 @@ tdpp.updatePreview = function(models, groundFaces, radius, length, slopeA, slope
                 * coor.rotZ(ref) * coor.trans(guideline:pt(ref):withZ(0))
         end
     end
-    local rtext = livetext(5, 0)("R" .. radius2String(radius))(fPos(guideline.mid))`
+    local rtext = livetext(5, 0)("R" .. radius2String(radius))(fPos(guideline.mid))
     local ltext = livetext(5, -1)("L" .. tostring(floor(length * 10) * 0.1))(fPos(guideline.mid))
     local sAtext = livetext(2.5, -0.5)(" S" .. tostring(floor(slopeA * 10000) * 0.1) .. "‰ ")(function(w) return fPos(guideline.inf)(0) end)
     local sBtext = livetext(2.5, -0.5)(" S" .. tostring(floor(slopeA * 10000) * 0.1) .. "‰ ")(function(w) return fPos(guideline.sup)(2 * w) end)
@@ -97,6 +85,17 @@ local retriveInfo = function(info)
     else
         return {}
     end
+end
+
+local function straightResult(posS, posE)
+    local length = (posE - posS):length()
+    return (length > 1) and {
+        f = 1,
+        radius = tdp.infi,
+        length = length,
+        vec = (posE - posS):normalized(),
+        pos = posS
+    }
 end
 
 local function findCircle(posS, posE, vecS, vecE, r)
@@ -151,17 +150,6 @@ local function findCircle(posS, posE, vecS, vecE, r)
             return ret, posS, posE, extS, true
         end
     end
-end
-
-local function straightResult(posS, posE)
-    local length = (posE - posS):length()
-    return (length > 1) and {
-        f = 1,
-        radius = tdp.infi,
-        length = length,
-        vec = (posE - posS):normalized(),
-        pos = posS
-    }
 end
 
 local function solve(s, e, r)
@@ -250,14 +238,13 @@ end
 
 tdpp.solve = solve
 
-local retriveParams = function(markers, r)
+local retriveParams = function(markers, con, r)
     local s, e = unpack(markers)
     
     local posS, _, _ = coor.decomposite(s.transf)
     local posE, _, _ = coor.decomposite(e.transf)
     local pos = (posE + posS) * 0.5
     
-    local con = "parallel_tracks.con"
     local findPreviewsByMarker = function(params)
         return pipe.new
             * game.interface.getEntities({pos = {pos.x, pos.y}, radius = (posE - posS):length()})
@@ -281,17 +268,17 @@ local retriveParams = function(markers, r)
         }
     end) * pipe.select(2)
     
-    return findPreviewsByMarker, con, results
+    return findPreviewsByMarker, results
 end
 
-local refineParams = function(params, markers)
+local refineParams = function(params, markers, con)
     local info = retriveInfo(
         markers
         * pipe.filter(function(m) return string.find(m.name, "#", 0, true) == 1, 1 end)
         * pipe.map(pipe.select("name")) * pipe.select(1)
     )
-    local findPreviewsByMarker, con, results = retriveParams(markers, info.radius or nil)
-    return findPreviewsByMarker, "track_design_patterns/" .. con, results
+    local findPreviewsByMarker, results = retriveParams(markers, con, info.radius or nil)
+    return findPreviewsByMarker, results
 end
 
 local findPreviewInstance = function(params)
@@ -301,65 +288,71 @@ local findPreviewInstance = function(params)
         * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
 end
 
-tdpp.updatePlanner = function(params, markers)
+tdpp.updatePlanner = function(params, markers, con)
     if (params.override == 1) then
-        local findPreviewsByMarker, con, results = refineParams(params, markers)
-        
+        local findPreviewsByMarker, results = refineParams(params, markers, con)
+        local con = "track_design_patterns/" .. con
+        local nbTracks = markers[1].params.nbTracks
         local pre = findPreviewsByMarker(params)
         local _ = pre * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
         
-        local _ = results * pipe.forEach(function(r)
-            local previewParams = func.with(station.pureParams(params),
-                {
-                    showPreview = true,
-                    overrideParams = {
-                        radius = r.f * r.radius,
-                        length = r.length,
-                        slopeA = r.slopeA,
-                        slopeB = r.slopeB
-                    }
-                })
-            local transf = quat.byVec(coor.xyz(0, 1, 0), (r.vec):withZ(0)):mRot() * coor.trans(r.pos)
-            local id = game.interface.buildConstruction(
-                con,
-                previewParams,
-                transf
-            )
-            game.interface.setPlayer(id, game.interface.getPlayer())
-        end)
-    else
-        local pre = #markers == 2 and retriveParams(markers)(params) or findPreviewInstance(params)
-        if (params.override == 2) then
-            local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
-            func.forEach(pre, function(pre)
-                game.interface.upgradeConstruction(
-                    pre.id,
-                    pre.fileName,
-                    func.with(station.pureParams(pre.params),
-                        {
-                            override = 2,
-                            showPreview = false,
-                            isBuild = true,
-                        })
-            )
+
+        local transf = quat.byVec(coor.xyz(0, 1, 0), (results[1].vec):withZ(0)):mRot() * coor.trans(results[1].pos)
+        local vecRef, rotRef, _ = coor.decomposite(transf)
+        local iRot = coor.inv(cov(rotRef))
+
+
+        local previewParams = func.with(station.pureParams(params),
+        {
+            showPreview = true,
+            overrideMeta = func.mapi(results, function(r, i)
+                
+                local transf = quat.byVec(coor.xyz(0, 1, 0), (r.vec):withZ(0)):mRot() * coor.trans(r.pos)
+                local vec, rot, _ = coor.decomposite(transf)
+                
+                return {
+                    nbTracks = nbTracks,
+                    radius = r.f * r.radius,
+                    length = r.length,
+                    slopeA = r.slopeA,
+                    slopeB = r.slopeB,
+                    m = iRot * rot * coor.trans((vec - vecRef) .. iRot),
+                    transf = transf,
+                    isFirst = i == 1,
+                    isLast = i == #results
+                }
             end)
+        })
+        local transf = quat.byVec(coor.xyz(0, 1, 0), (results[1].vec):withZ(0)):mRot() * coor.trans(results[1].pos)
+        local id = game.interface.buildConstruction(
+            con,
+            previewParams,
+            transf
+        )
+        game.interface.setPlayer(id, game.interface.getPlayer())
+
+    else
+        local pre = #markers == 2 and retriveParams(markers, con)(params) or findPreviewInstance(params)
+        if (params.override == 2) then
+            if (pre and #pre > 0) then
+                local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
+                func.forEach(pre, function(pre)
+                    game.interface.upgradeConstruction(
+                        pre.id,
+                        pre.fileName,
+                        func.with(station.pureParams(pre.params),
+                            {
+                                override = 2,
+                                showPreview = false,
+                                isBuild = true,
+                            })
+                )
+                end)
+            end
         elseif (params.override == 3) then
             local _ = pre * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
         end
     end
-    
-    return {
-        models = {
-            {
-                id = "asset/icon/marker_question.mdl",
-                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-            }
-        },
-        cost = 0,
-        bulldozeCost = 0,
-        maintenanceCost = 0,
-        terrainAlignmentLists = {{type = "EQUAL", faces = {}}}
-    }
 end
 
 

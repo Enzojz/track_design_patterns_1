@@ -204,319 +204,355 @@ local function defaultParams(param)
     func.forEach(params(), function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
 end
 
-local updateFn = function()
+
+
+local updateFunction = function(params)
+    local trackType = tdp.trackList[params.trackType + 1]
+    local catenary = params.catenary == 1
+    local trackBuilder = trackEdge.builder(catenary, trackType)
+    
+    local nbTracks = (params.overrideParams and params.overrideParams.nbTracks or params.nbTracks) + 1
+    local radius = params.overrideParams and params.overrideParams.radius or (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
+    local length = params.overrideParams and params.overrideParams.length or (params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000)
+    
+    local slopeA = params.overrideParams and params.overrideParams.slopeA or (slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001)
+    local slopeB = params.overrideParams and params.overrideParams.slopeB or (params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001)
+    
+    length = length > 0 and length or 1
+    local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
+    
+    local offsets = tdp.buildCoors(nbTracks, nbTracks)
+    local initRad = radius > 0 and pi or 0
+    local dRad = math.abs(length / radius) < 2 * pi and -length / radius or 2 * pi * 0.99
+    
+    local wallOffset = params.wallOffset * 0.5 + 0.2
+    
+    local function signalGrouping(result, leftLength)
+        return leftLength <= 0 and result / 1 or signalGrouping(result / ((length - leftLength) / length), leftLength - signalSpacing)
+    end
+    
+    local fz =
+    (slopeA == slopeB) and
+        pipe.exec * function()
+            local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, slopeA * length))
+            
+            return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = slopeA} end
+        end
+        or
+        pipe.exec * function()
+            local radRef = (slopeA > slopeB and 1 or -1) * 0.5 * pi
+            local radA, radB = atan(slopeA), atan(slopeB)
+            local r = length / (sin(radB) - sin(radA))
+            local arch = arc.byOR(coor.xy(0, cos(radA) * r), r)
+            return function(rad)
+                local pt =
+                    func.min(arch / line.byVecPt(coor.xy(0, 1), coor.xy((rad - initRad) * length / dRad + r * sin(radA), 0))
+                        , function(a, b) return a:length() < b:length() end)
+                return {z = pt.y, s = math.tan(arch:rad(pt) - radRef)}
+            end
+        end
+    
+    local limits = signalGrouping(pipe.new, length)
+        * function(r) return func.map2(
+            func.range(r, 1, #r - 1),
+            func.range(r, 2, #r),
+            function(f, t) return
+                {
+                    inf = initRad + f * dRad,
+                    mid = initRad + (f + t) * 0.5 * dRad,
+                    sup = initRad + t * dRad
+                }
+            end)
+        end
+    
+    local guideline = arc.byOR(coor.xyz(radius, 0, 0), abs(radius)):withLimits({
+        inf = initRad,
+        mid = initRad + 0.5 * dRad,
+        sup = initRad + dRad,
+        offset = 0
+    })
+    
+    local guidelines = offsets.tracks
+        * (radius < 0 and pipe.noop() or pipe.rev())
+        * pipe.map(function(o)
+            local g = (guideline + o)
+            return limits
+                * pipe.map(function(l) return func.with(g:withLimits(l), {offset = o}) end)
+        end)
+    
+    local zsList = limits
+        * pipe.map(function(l)
+            return {
+                {coor.transZ(fz(l.inf).z), coor.transZ(fz(l.mid).z), coor.transZ(fz(l.inf).s), coor.transZ(fz(l.mid).s)},
+                {coor.transZ(fz(l.mid).z), coor.transZ(fz(l.sup).z), coor.transZ(fz(l.mid).s), coor.transZ(fz(l.sup).s)}
+            }
+        end)
+    
+    local arcs = guidelines
+        * pipe.map(pipe.map(tdp.generateArc))
+        * pipe.map(pipe.map(pipe.range(1, 2)))
+        * pipe.map(pipe.map2(zsList, function(a, zs) return func.map2(a, zs, function(ar, nz) return func.map2(ar, nz, coor.apply) end) end))
+        * pipe.map(function(segs) return pipe.new * segs
+            * pipe.mapi(function(e, i) return {
+                edge = pipe.new * e,
+                snap = params.overrideParams
+                and (pipe.new / {params.overrideParams.isFirst and i == 1, false} / {false, params.overrideParams.isLast and i == #segs})
+                or (pipe.new / {i == 1, false} / {false, i == #segs})
+            } end)
+        end)
+        * pipe.map(station.joinEdges)
+        * pipe.map(station.mergeEdges)
+    
+    
+    local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
+    
+    local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
+    local rightSignal = function(i) return i % 2 == 1 and {{false, 1 - signalOffset}} or {} end
+    
+    local signalPattern = ({
+        function(n, i) return n % 2 == 1 and leftSignal(i) or rightSignal(i) end,
+        function(n, i) return n % 2 ~= 1 and leftSignal(i) or rightSignal(i) end,
+        function(n, i) return n <= nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
+        function(n, i) return n > nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
+        function(_, i) return leftSignal(i) end,
+        function(_, i) return rightSignal(i) end,
+        function(_, i) return i == 1 and {{true, signalOffset}} or (i == #limits * 2 and {{false, 1 - signalOffset}} or {}) end
+    })[params.signalPattern + 1];
+    
+    local wallHeight = {
+        A = func.seq(-1, 15)[params.wallAHeight + 1],
+        B = params.wallBHeight == 0 and func.seq(-1, 15)[params.wallAHeight + 1] or func.seq(-1, 15)[params.wallBHeight]
+    }
+    
+    local vfz = function(h, va)
+        local var = h < 0 and 0 or
+            va + h > 15 and 15 - h or
+            va + h < 0 and -h or va
+        
+        local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, var))
+        return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (-ln.a / ln.b) / length * dRad} end
+    end
+    
+    local retriveWall = {
+        A = function(ls) return ls[params.wallAType + 1] end,
+        B = function(ls) return params.wallBType == 0 and ls[params.wallAType + 1] or ls[params.wallBType] end
+    }
+    
+    local wallGuidelines = offsets.walls
+        * (radius < 0 and pipe.noop() or pipe.rev())
+        * pipe.map(function(o) return guideline + o + wallOffset * (o > 0 and 1 or -1) end)
+    
+    local trackPavingGuidelines =
+        offsets.walls
+        * (radius < 0 and pipe.noop() or pipe.rev())
+        * pipe.map(function(o)
+            return pipe.new
+                * func.seq(-1, wallOffset)
+                * pipe.map(function(d) return guideline + o + d * (o > 0 and 1 or -1) end)
+        end)
+    
+    local function mPlace(vfz, mZ)
+        return function(fitModel, arcL, arcR, rad1, rad2)
+            local z1, z2 = fz(rad1).z + vfz(rad1).z, fz(rad2).z + vfz(rad2).z
+            local size = {
+                lb = arcL:pt(rad1):withZ(z1),
+                lt = arcL:pt(rad2):withZ(z2),
+                rb = arcR:pt(rad1):withZ(z1),
+                rt = arcR:pt(rad2):withZ(z2)
+            }
+            return mZ * fitModel(size)
+        end
+    end
+    
+    local makeWallA = tdp.makeFn(wallHeight.A < 0)(
+        retriveWall.A(wallList),
+        tdp.fitModel,
+        mPlace(
+            vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1]),
+            retriveWall.A(wallTransList)(wallHeight.A)
+        ),
+        retriveWall.A(wallWidthList),
+        retriveWall.A(wallLengthList)
+    )
+    local makeWallB = tdp.makeFn(wallHeight.B > 0)(
+        retriveWall.B(wallList),
+        tdp.fitModel,
+        mPlace(
+            vfz(wallHeight.B, params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar]),
+            retriveWall.B(wallTransList)(wallHeight.B)
+        ),
+        retriveWall.B(wallWidthList),
+        retriveWall.B(wallLengthList)
+    )
+    local makePaving = tdp.makeFn(false)(
+        "track_design_patterns/paving_base",
+        tdp.fitModel,
+        mPlace(vfz(0, 0), coor.transZ(-1e-3)),
+        1,
+        5
+    )
+    local walls = pipe.new
+        + {wallHeight.A == 0 and {} or pipe.new * makeWallA(wallGuidelines[1]) * pipe.flatten()}
+        + {wallHeight.B == 0 and {} or pipe.new * makeWallB(wallGuidelines[2]) * pipe.flatten()}
+        + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
+        + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
+    
+    local terrainGuidelines = offsets.walls
+        * (radius < 0 and pipe.noop() or pipe.rev())
+        * pipe.map2(
+            offsets.tracks
+            * (radius < 0 and pipe.noop() or pipe.rev())
+            * function(o) return {o[#o], o[1]} end,
+            function(o, t)
+                local ref = guideline + o
+                local extra = function(w) return ref + (o > 0 and w or -w) end
+                return
+                    {
+                        ref = extra(wallOffset),
+                        outer = extra(wallOffset + 0.5),
+                        inner = extra(wallOffset - 0.5),
+                        limit = guideline + t
+                    }
+            end)
+    
+    local polyGen = function(wallHeight, refHeight, guidelines, wHeight)
+        local f = function(s) return s.g and
+            tdp.generatePolyArc({s.g, guideline}, "inf", "sup")(0, 0)
+            * pipe.map(pipe.map(s.fz))
+            * station.projectPolys(coor.I())
+            or {}
+        end
+        local polyGen = function(l, e, g)
+            return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
+        end
+        
+        return {
+            equal = polyGen(
+                {},
+                refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
+                {}
+            ),
+            less = polyGen(
+                {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
+                refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
+                {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight - 0.25)(p) end}
+            ),
+            greater = polyGen(
+                {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight)(p) end},
+                refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
+                refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or
+                {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight + wallHeight)(p) end}
+        )
+        }
+    end
+    
+    local slotGen = function(wallHeight, guidelines)
+        local f = function(s) return s.g and
+            tdp.generatePolyArc({s.g, s.l}, "inf", "sup")(0, 0)
+            * station.projectPolys(coor.I())
+            or {}
+        end
+        local polyGen = function(l, e, g)
+            return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
+        end
+        
+        return polyGen(
+            {},
+            {},
+            {g = guidelines.ref, l = guidelines.limit}
+    )
+    end
+    
+    if (params.showPreview) then
+        return tdpp.updatePreview(
+            walls * pipe.flatten(),
+            guidelines
+            * pipe.map(pipe.map(
+                function(g) return tdp.generatePolyArc({g + 2.4, g + (-2.4)}, "inf", "sup")(0, 0)
+                    * station.projectPolys(coor.I())
+                end))
+            * pipe.flatten()
+            * pipe.flatten()
+            * pipe.map(function(poly) return {face = poly, modes = {{type = "FILL", key = "fill_red"}}} end),
+            radius, length, slopeA, slopeB, guideline)
+    end
+    
+    return
+        pipe.new
+        * {
+            edgeLists = {pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.nonAligned()},
+            edgeObjects = length <= signalSpacing and {} or pipe.new
+            * func.seqMap({0, nbTracks - 1}, function(n) return
+                func.seqMap({0, #limits * 2 - 1}, function(i) return
+                    func.map(signalPattern(n + 1, i + 1), function(p)
+                        local isLeft, pos = unpack(p)
+                        return {
+                            edge = n * #limits * 2 + i,
+                            param = pos,
+                            left = isLeft,
+                            model = params.signalSpacing == 1 and "railroad/signal_mb.mdl" or "railroad/signal_new_block.mdl"
+                        }
+                    end)
+                end)
+            end)
+            * pipe.flatten()
+            * pipe.flatten(),
+            models = walls * pipe.flatten(),
+            terrainAlignmentLists = station.mergePoly(
+                polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
+                polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
+            )({less = 1.5}),
+            groundFaces =
+            pipe.new
+            / slotGen(wallHeight.A, terrainGuidelines[1])
+            / slotGen(wallHeight.B, terrainGuidelines[2])
+            * pipe.flatten()
+            * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
+        }
+        * station.setHeight(func.seq(-10, 15)[params.height + 1])
+
+end
+
+local unpackMeta = function(params)
+    local results = func.map(params.overrideMeta, function(o) return updateFunction(func.with(params, {overrideParams = o, overrideMeta = nil})) * station.setTransform(o.m) end)
+    local result = station.mergeResults(unpack(results))
+    if (#result.models == 0) then
+        result.models = {
+            {
+                id = "track_design_patterns/void.mdl",
+                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+            }
+        }
+    end
+    return result
+end
+
+local function updateFn()
     return function(params)
         defaultParams(params)
         
-        local trackType = tdp.trackList[params.trackType + 1]
-        local catenary = params.catenary == 1
-        local trackBuilder = trackEdge.builder(catenary, trackType)
-        
-        local nbTracks = params.nbTracks + 1
-        local radius = params.overrideParams and params.overrideParams.radius or (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
-        local length = params.overrideParams and params.overrideParams.length or (params.lengthD * 10 + params.lengthC * 100 + params.lengthM * 1000)
-        
-        local slopeA = params.overrideParams and params.overrideParams.slopeA or (slopeList[params.slopeA + 1] * (params.slopeSignA == 0 and 1 or -1) * 0.001)
-        local slopeB = params.overrideParams and params.overrideParams.slopeB or (params.slopeB == 0 and slopeA or slopeList[params.slopeB] * (params.slopeSignB == 0 and 1 or -1) * 0.001)
-        
-        length = length > 0 and length or 1
-        local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
-        
-        local offsets = tdp.buildCoors(nbTracks, nbTracks)
-        local initRad = radius > 0 and pi or 0
-        local dRad = math.abs(length / radius) < 2 * pi and -length / radius or 2 * pi * 0.99
-        
-        local wallOffset = params.wallOffset * 0.5 + 0.2
-        
-        local function signalGrouping(result, leftLength)
-            return leftLength <= 0 and result / 1 or signalGrouping(result / ((length - leftLength) / length), leftLength - signalSpacing)
-        end
-        
-        local fz =
-        (slopeA == slopeB) and
-            pipe.exec * function()
-                local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, slopeA * length))
-                
-                return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = slopeA} end
-            end
-            or
-            pipe.exec * function()
-                local radRef = (slopeA > slopeB and 1 or -1) * 0.5 * pi
-                local radA, radB = atan(slopeA), atan(slopeB)
-                local r = length / (sin(radB) - sin(radA))
-                local arch = arc.byOR(coor.xy(0, cos(radA) * r), r)
-                return function(rad)
-                    local pt =
-                        func.min(arch / line.byVecPt(coor.xy(0, 1), coor.xy((rad - initRad) * length / dRad + r * sin(radA), 0))
-                            , function(a, b) return a:length() < b:length() end)
-                    return {z = pt.y, s = math.tan(arch:rad(pt) - radRef)}
-                end
-            end
-        
-        local limits = signalGrouping(pipe.new, length)
-            * function(r) return func.map2(
-                func.range(r, 1, #r - 1),
-                func.range(r, 2, #r),
-                function(f, t) return
-                    {
-                        inf = initRad + f * dRad,
-                        mid = initRad + (f + t) * 0.5 * dRad,
-                        sup = initRad + t * dRad
-                    }
-                end)
-            end
-        
-        local guideline = arc.byOR(coor.xyz(radius, 0, 0), abs(radius)):withLimits({
-            inf = initRad,
-            mid = initRad + 0.5 * dRad,
-            sup = initRad + dRad,
-            offset = 0
-        })
-        
-        local guidelines = offsets.tracks
-            * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o)
-                local g = (guideline + o)
-                return limits
-                    * pipe.map(function(l) return func.with(g:withLimits(l), {offset = o}) end)
-            end)
-        
-        local zsList = limits
-            * pipe.map(function(l)
-                return {
-                    {coor.transZ(fz(l.inf).z), coor.transZ(fz(l.mid).z), coor.transZ(fz(l.inf).s), coor.transZ(fz(l.mid).s)},
-                    {coor.transZ(fz(l.mid).z), coor.transZ(fz(l.sup).z), coor.transZ(fz(l.mid).s), coor.transZ(fz(l.sup).s)}
-                }
-            end)
-        
-        local arcs = guidelines
-            * pipe.map(pipe.map(tdp.generateArc))
-            * pipe.map(pipe.map(pipe.range(1, 2)))
-            * pipe.map(pipe.map2(zsList, function(a, zs) return func.map2(a, zs, function(ar, nz) return func.map2(ar, nz, coor.apply) end) end))
-            * pipe.map(function(segs) return pipe.new * segs
-                * pipe.mapi(function(e, i) return {
-                    edge = pipe.new * e,
-                    snap = pipe.new / {i == 1, false} / {false, i == #segs}
-                } end)
-            end)
-            * pipe.map(station.joinEdges)
-            * pipe.map(station.mergeEdges)
-        
-        
-        local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
-        
-        local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
-        local rightSignal = function(i) return i % 2 == 1 and {{false, 1 - signalOffset}} or {} end
-        
-        local signalPattern = ({
-            function(n, i) return n % 2 == 1 and leftSignal(i) or rightSignal(i) end,
-            function(n, i) return n % 2 ~= 1 and leftSignal(i) or rightSignal(i) end,
-            function(n, i) return n <= nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
-            function(n, i) return n > nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
-            function(_, i) return leftSignal(i) end,
-            function(_, i) return rightSignal(i) end,
-            function(_, i) return i == 1 and {{true, signalOffset}} or (i == #limits * 2 and {{false, 1 - signalOffset}} or {}) end
-        })[params.signalPattern + 1];
-        
-        local wallHeight = {
-            A = func.seq(-1, 15)[params.wallAHeight + 1],
-            B = params.wallBHeight == 0 and func.seq(-1, 15)[params.wallAHeight + 1] or func.seq(-1, 15)[params.wallBHeight]
-        }
-        
-        local vfz = function(h, va)
-            local var = h < 0 and 0 or
-                va + h > 15 and 15 - h or
-                va + h < 0 and -h or va
-            
-            local ln = line.byPtPt(coor.xy(initRad, 0), coor.xy(initRad + dRad, var))
-            return function(rad) return {z = (ln - line.byVecPt(coor.xy(0, 1), coor.xy(rad, 0))).y, s = (-ln.a / ln.b) / length * dRad} end
-        end
-        
-        local retriveWall = {
-            A = function(ls) return ls[params.wallAType + 1] end,
-            B = function(ls) return params.wallBType == 0 and ls[params.wallAType + 1] or ls[params.wallBType] end
-        }
-        
-        local wallGuidelines = offsets.walls
-            * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o) return guideline + o + wallOffset * (o > 0 and 1 or -1) end)
-        
-        local trackPavingGuidelines =
-            offsets.walls
-            * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map(function(o)
-                return pipe.new
-                    * func.seq(-1, wallOffset)
-                    * pipe.map(function(d) return guideline + o + d * (o > 0 and 1 or -1) end)
-            end)
-        
-        local function mPlace(vfz, mZ)
-            return function(fitModel, arcL, arcR, rad1, rad2)
-                local z1, z2 = fz(rad1).z + vfz(rad1).z, fz(rad2).z + vfz(rad2).z
-                local size = {
-                    lb = arcL:pt(rad1):withZ(z1),
-                    lt = arcL:pt(rad2):withZ(z2),
-                    rb = arcR:pt(rad1):withZ(z1),
-                    rt = arcR:pt(rad2):withZ(z2)
-                }
-                return mZ * fitModel(size)
-            end
-        end
-        
-        local makeWallA = tdp.makeFn(wallHeight.A < 0)(
-            retriveWall.A(wallList),
-            tdp.fitModel,
-            mPlace(
-                vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1]),
-                retriveWall.A(wallTransList)(wallHeight.A)
-            ),
-            retriveWall.A(wallWidthList),
-            retriveWall.A(wallLengthList)
-        )
-        local makeWallB = tdp.makeFn(wallHeight.B > 0)(
-            retriveWall.B(wallList),
-            tdp.fitModel,
-            mPlace(
-                vfz(wallHeight.B, params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar]),
-                retriveWall.B(wallTransList)(wallHeight.B)
-            ),
-            retriveWall.B(wallWidthList),
-            retriveWall.B(wallLengthList)
-        )
-        local makePaving = tdp.makeFn(false)(
-            "track_design_patterns/paving_base",
-            tdp.fitModel,
-            mPlace(vfz(0, 0), coor.transZ(-1e-3)),
-            1,
-            5
-        )
-        local walls = pipe.new
-            + {wallHeight.A == 0 and {} or pipe.new * makeWallA(wallGuidelines[1]) * pipe.flatten()}
-            + {wallHeight.B == 0 and {} or pipe.new * makeWallB(wallGuidelines[2]) * pipe.flatten()}
-            + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
-            + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
-        
-        local terrainGuidelines = offsets.walls
-            * (radius < 0 and pipe.noop() or pipe.rev())
-            * pipe.map2(
-                offsets.tracks
-                * (radius < 0 and pipe.noop() or pipe.rev())
-                * function(o) return {o[#o], o[1]} end,
-                function(o, t)
-                    local ref = guideline + o
-                    local extra = function(w) return ref + (o > 0 and w or -w) end
-                    return
-                        {
-                            ref = extra(wallOffset),
-                            outer = extra(wallOffset + 0.5),
-                            inner = extra(wallOffset - 0.5),
-                            limit = guideline + t
-                        }
-                end)
-        
-        local polyGen = function(wallHeight, refHeight, guidelines, wHeight)
-            local f = function(s) return s.g and
-                tdp.generatePolyArc({s.g, guideline}, "inf", "sup")(0, 0)
-                * pipe.map(pipe.map(s.fz))
-                * station.projectPolys(coor.I())
-                or {}
-            end
-            local polyGen = function(l, e, g)
-                return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
-            end
-            
-            return {
-                equal = polyGen(
-                    {},
-                    refHeight > 0 and {} or {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
-                    {}
-                ),
-                less = polyGen(
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
-                    refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight - 0.25)(p) end}
-                ),
-                greater = polyGen(
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight)(p) end},
-                    refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                    refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or
-                    {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight + wallHeight)(p) end}
-            )
-            }
-        end
-        
-        local slotGen = function(wallHeight, guidelines)
-            local f = function(s) return s.g and
-                tdp.generatePolyArc({s.g, s.l}, "inf", "sup")(0, 0)
-                * station.projectPolys(coor.I())
-                or {}
-            end
-            local polyGen = function(l, e, g)
-                return wallHeight == 0 and f(e) or (wallHeight > 0 and f(g) or f(l))
-            end
-            
-            return polyGen(
-                {},
-                {},
-                {g = guidelines.ref, l = guidelines.limit}
-        )
-        end
-        
-        if (params.showPreview) then
-            return tdpp.updatePreview(
-                walls * pipe.flatten(),
-                guidelines
-                * pipe.map(pipe.map(
-                    function(g) return tdp.generatePolyArc({g + 2.4, g + (-2.4)}, "inf", "sup")(0, 0)
-                        * station.projectPolys(coor.I())
-                    end))
-                * pipe.flatten()
-                * pipe.flatten()
-                * pipe.map(function(poly) return {face = poly, modes = {{type = "FILL", key = "fill_red"}}} end),
-                radius, length, slopeA, slopeB, guideline)
-        elseif (params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) then
+        if ((params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) and not params.showPreview) then
             local markers = tdpp.findMarkers(params.overrideGr)
             if (#markers == 2 or params.override > 1) then
-                return tdpp.updatePlanner(params, markers)
+                tdpp.updatePlanner(params, markers, "parallel_tracks.con")
             end
         end
         
-        return
-            pipe.new
-            * {
-                edgeLists = {pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.nonAligned()},
-                edgeObjects = length <= signalSpacing and {} or pipe.new
-                * func.seqMap({0, nbTracks - 1}, function(n) return
-                    func.seqMap({0, #limits * 2 - 1}, function(i) return
-                        func.map(signalPattern(n + 1, i + 1), function(p)
-                            local isLeft, pos = unpack(p)
-                            return {
-                                edge = n * #limits * 2 + i,
-                                param = pos,
-                                left = isLeft,
-                                model = params.signalSpacing == 1 and "railroad/signal_mb.mdl" or "railroad/signal_new_block.mdl"
-                            }
-                        end)
-                    end)
-                end)
-                * pipe.flatten()
-                * pipe.flatten(),
-                models = walls * pipe.flatten(),
-                terrainAlignmentLists = station.mergePoly(
-                    polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
-                    polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
-                )({less = 1.5}),
-                groundFaces =
-                pipe.new
-                / slotGen(wallHeight.A, terrainGuidelines[1])
-                / slotGen(wallHeight.B, terrainGuidelines[2])
-                * pipe.flatten()
-                * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
-            }
-            * station.setHeight(func.seq(-10, 15)[params.height + 1])
+        if (params.override == 2 and not params.isBuild) then
+            local instance = pipe.new
+                * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+                * pipe.map(game.interface.getEntity)
+                * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
+            
+            if (#instance == 1) then
+                params.overrideMeta = instance[1].params.overrideMeta
+                params.isBuild = true
+            end
+        end
+        
+        return params.overrideMeta and unpackMeta(params) or updateFunction(params)
     end
 end
-
 
 function data()
     return {
