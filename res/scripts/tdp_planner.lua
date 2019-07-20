@@ -24,6 +24,7 @@ local sin = ma.sin
 local asin = ma.asin
 local min = ma.min
 local atan2 = ma.atan2
+local sqrt = ma.sqrt
 
 
 local cov = function(m)
@@ -145,17 +146,14 @@ local function findCircle(posS, posE, vecS, vecE, r)
         local vecOS = o - posS
         local vecOE = o - posE
         local radius = vecOS:length()
+        local rad = asin(vecOS:normalized():cross(vecOE:normalized()))
         local result = pipe.new
         if (r and radius > r) then
-            local vecO = (x - o):normalized()
-            o = o + vecO * (radius - r)
+            local o = o + (x - o) * (1 - r / radius)
             local lnPS = line.pend(lnS, o)
             local lnPE = line.pend(lnE, o)
             local posS = lnPS - lnS
             local posE = lnPE - lnE
-            vecOS = o - posS
-            vecOE = o - posE
-            local rad = asin(vecOS:normalized():cross(vecOE:normalized()))
             local length = abs(rad * r)
             local f = rad > 0 and 1 or -1
             return {
@@ -166,7 +164,6 @@ local function findCircle(posS, posE, vecS, vecE, r)
                 pos = posS
             }, posS, posE, true, true
         else
-            local rad = asin(vecOS:normalized():cross(vecOE:normalized()))
             local length = abs(rad * radius)
             local f = rad > 0 and 1 or -1
             return {
@@ -179,16 +176,27 @@ local function findCircle(posS, posE, vecS, vecE, r)
         end
     else
         if (dXS > dXE) then
-            local ret, posS, posE = findCircle(posS + vecS * (dXS - dXE), posE, vecS, vecE, r)
-            return ret, posS, posE, true, false
+            local ret, posS, posE, _, extE = findCircle(posS + vecS * (dXS - dXE), posE, vecS, vecE, r)
+            return ret, posS, posE, true, extE
         else
-            local ret, posS, posE = findCircle(posS, posE + vecE * (dXE - dXS), vecS, vecE, r)
-            return ret, posS, posE, true, false
+            local ret, posS, posE, extS, _ = findCircle(posS, posE + vecE * (dXE - dXS), vecS, vecE, r)
+            return ret, posS, posE, extS, true
         end
     end
 end
 
-local solve = function(s, e, r)
+local function straightResult(posS, posE)
+    local length = (posE - posS):length()
+    return (length > 1) and {
+        f = 1,
+        radius = tdp.infi,
+        length = length,
+        vec = (posE - posS):normalized(),
+        pos = posS
+    }
+end
+
+local function solve(s, e, r)
     local posS, rotS, _ = coor.decomposite(s.transf)
     local posE, rotE, _ = coor.decomposite(e.transf)
     local vecS = coor.xyz(1, 0, 0) .. rotS
@@ -196,13 +204,14 @@ local solve = function(s, e, r)
     posS = posS:withZ(0)
     posE = posE:withZ(0)
     vecS = vecS:withZ(0):normalized()
-    vecE = vecE:withZ(0):normalized() 
+    vecE = vecE:withZ(0):normalized()
     -- Work on horizon plan, recalculate Z at last
     local lnS = line.byVecPt(vecS, posS)
     local lnE = line.byVecPt(vecE, posE)
     local m = (posE + posS) * 0.5
     local vecES = posE - posS
     local x = lnS - lnE
+    
     
     if (x) then
         local vecXS = x - posS
@@ -212,24 +221,35 @@ local solve = function(s, e, r)
         local v = vecXE:length()
         
         local co = vecXS:normalized():dot(vecXE:normalized())
-        local function straightResult(posS, posE)
-            local length = (posE - posS):length()
-            return {
-                f = 1,
-                radius = tdp.infi,
-                length = length,
-                vec = (posE - posS):normalized(),
-                pos = posS
-            }
-        end
         if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
-            local ret, posCS, posCE, extS, extE = findCircle(posS, posE, vecS, vecE, r)
+            local ret, posCS, posCE = findCircle(posS, posE, vecS, vecE, r)
             return pipe.new
-                / (extS and straightResult(posCS, posS))
+                / straightResult(posS, posCS)
                 / ret
-                / (extE and straightResult(posCE, posE))
-        -- elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then
-        -- elseif ((vecXS:dot(vecS) < 0 and vecXE:dot(vecE) > 0)) then
+                / straightResult(posCE, posE)
+        elseif ((vecXS:dot(vecS) < 0 and vecXE:dot(vecE) > 0)) then
+            local mRot = coor.rotZ(0.5 * pi)
+            local vecOS = coor.xyz(-vecS.y, vecS.x, 0) * (vecS:cross(vecE).z < 0 and 1 or -1)
+            local vecOE = coor.xyz(-vecE.y, vecE.x, 0) * (vecS:cross(vecE).z < 0 and 1 or -1)
+            local a = posS - posE
+            local b = vecOS - vecOE
+            local ab = a:dot(b)
+            local radius = (ab + sqrt(ab * ab + 4 * a:dot(a)  - a:length2() * b:length2())) / (4 - b:length2())
+            local oS = posS + vecOS * radius
+            local oE = posE + vecOE * radius
+            local m = (oS + oE) * 0.5
+            local vecP = (oE - oS):normalized()
+            local vecT = coor.xyz(-vecP.y, vecP.x, 0) * (vecS:cross(vecE).z < 0 and 1 or -1)
+            local ret1, posCS1, posCE1 = findCircle(posS, m, vecS, vecT, r)
+            local ret2, posCS2, posCE2 = findCircle(m, posE, vecT, vecE, r)
+            return pipe.new
+                / straightResult(posS, posCS1)
+                / ret1
+                / straightResult(posCE1, posCS2)
+                / ret2
+                / straightResult(posCE2, posE)
+        elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then 
+            return solve(e, s, r)
         end
     else
         local lnPenE = line.pend(lnE, posE)
@@ -249,24 +269,14 @@ local solve = function(s, e, r)
             local mRot = quat.byVec(vecS, vecES:normalized()):mRot()
             local vecT = vecES .. mRot
             local lnT = line.byVecPt(vecT, m)
-            local ret1, posCS1, posCE1, extS1, extE1 = findCircle(posS, m, vecS, -vecT, r)
-            local ret2, posCS2, posCE2, extS2, extE2 = findCircle(m, posE, vecT, vecE, r)
+            local ret1, posCS1, posCE1 = findCircle(posS, m, vecS, -vecT, r)
+            local ret2, posCS2, posCE2 = findCircle(m, posE, vecT, vecE, r)
             return pipe.new
-                / (extS1 and straightResult(posCS1, posS))
+                / straightResult(posS, posCS1)
                 / ret1
-                / (
-                (extE1 and extS2)
-                and straightResult(posCE1, posCS2)
-                or (
-                (extE1 and not extS2)
-                and straightResult(posCE1, m)
-                or (
-                (not extE1 and extS2) and straightResult(m, posCS2)
-                )
-                )
-                )
+                / straightResult(posCE1, posCS2)
                 / ret2
-                / (extE2 and straightResult(posCE2, posE))
+                / straightResult(posCE2, posE)
         end
     end
 end
@@ -289,7 +299,7 @@ local retriveParams = function(markers, r)
     end
     
     local results = solve(s, e, r) * pipe.filter(pipe.noop())
-
+    
     local totalLength = results * pipe.fold(0, function(sum, r) return sum + r.length end)
     local results = results * pipe.fold({totalLength, pipe.new * {}}, function(result, seg)
         local restLength, results = unpack(result)
