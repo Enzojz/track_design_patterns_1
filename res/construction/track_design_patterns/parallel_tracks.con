@@ -463,26 +463,17 @@ local updateFn = function()
         end
         
         if (params.showPreview) then
-            return {
-                models = {
-                    {
-                        id = "asset/icon/marker_question.mdl",
-                        transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-                    }
-                },
-                cost = 0,
-                bulldozeCost = 0,
-                maintenanceCost = 0,
-                terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
-                groundFaces = guidelines
+            return tdpp.updatePreview(
+                walls * pipe.flatten(),
+                guidelines
                 * pipe.map(pipe.map(
                     function(g) return tdp.generatePolyArc({g + 2.4, g + (-2.4)}, "inf", "sup")(0, 0)
                         * station.projectPolys(coor.I())
                     end))
                 * pipe.flatten()
                 * pipe.flatten()
-                * pipe.map(function(poly) return {face = poly, modes = {{type = "FILL", key = "fill_red"}}} end)
-            }
+                * pipe.map(function(poly) return {face = poly, modes = {{type = "FILL", key = "fill_red"}}} end),
+                radius, length, slopeA, slopeB, guideline)
         elseif (params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) then
             local markers = tdpp.findMarkers(params.overrideGr)
             if (#markers == 2 or params.override > 1) then

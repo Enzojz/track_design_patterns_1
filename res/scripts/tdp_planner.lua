@@ -6,6 +6,7 @@ local quat = require "track_design_patterns/quaternion"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
+local livetext = require "livetext"
 
 local dump = require "luadump"
 
@@ -66,59 +67,26 @@ tdpp.displace = function(config, trackCoords)
     return station.setTransform(coor.trans(-disp))
 end
 
-tdpp.updatePreview = function(params, config, arcPacker, buildStation)
-    local nbTracks = tdpm.trackNumberList[params.nbTracks + 1]
-    
-    local track, platform, entry, trackCoords =
-        buildStation(nbTracks,
-            arcPacker,
-            config,
-            params.hasLeftPlatform == 0,
-            params.hasRightPlatform == 0,
-            tdp.buildPreview
-    )
+local livetext = livetext("lato", false, "CF2F2F2")
+
+tdpp.updatePreview = function(models, groundFaces, radius, length, slopeA, slopeB, guideline)
     local radius2String = function(r) return abs(r) > 1e6 and (r > 0 and "+∞" or "-∞") or tostring(floor(r * 10) * 0.1) end
-    local fPos = function(w) return coor.transX(-0.5 * w) * coor.rotX(-pi * 0.5) * coor.rotZ(pi * 0.5) * coor.transZ(3) end
-    local rtext = livetext(7, 0)(
-        config.r
-        and ("R" .. radius2String(config.r))
-        or ("R" .. radius2String(config.rA) .. " / " .. radius2String(config.rB))
-    )(fPos)
-    local ltext = livetext(7, -1)("L" .. tostring(floor(config.length * 10) * 0.1))(fPos)
-    local stext = livetext(7, -2)("S" .. tostring(floor(config.slope * 10000) * 0.1) .. "‰")(fPos)
+    
+    local fPos = function(ref)
+        return function(w)
+            return coor.transX(-0.5 * w) * coor.rotX(-pi * 0.5) * coor.rotZ((radius > 0 and -0.5 or 0.5) * pi) * coor.transZ(3)
+                * coor.rotZ(ref) * coor.trans(guideline:pt(ref):withZ(0))
+        end
+    end
+    local rtext = livetext(5, 0)("R" .. radius2String(radius))(fPos(guideline.mid))`
+    local ltext = livetext(5, -1)("L" .. tostring(floor(length * 10) * 0.1))(fPos(guideline.mid))
+    local sAtext = livetext(2.5, -0.5)(" S" .. tostring(floor(slopeA * 10000) * 0.1) .. "‰ ")(function(w) return fPos(guideline.inf)(0) end)
+    local sBtext = livetext(2.5, -0.5)(" S" .. tostring(floor(slopeA * 10000) * 0.1) .. "‰ ")(function(w) return fPos(guideline.sup)(2 * w) end)
     return pipe.new * {
-        models = pipe.new + ltext + rtext + stext,
+        models = pipe.new + ltext + rtext + sAtext + sBtext + models,
         terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
-        groundFaces = track
-        * pipe.map(pipe.select("equal"))
-        * pipe.filter(pipe.noop())
-        * pipe.flatten()
-        * pipe.map(function(f) return {
-            {face = f, modes = {{type = "FILL", key = "fill_red"}}},
-        } end)
-        * pipe.flatten()
-        + platform
-        * pipe.map(pipe.select("equal"))
-        * pipe.filter(pipe.noop())
-        * pipe.flatten()
-        * pipe.map(function(f) return {
-            {face = f, modes = {{type = "FILL", key = "fill_blue"}}},
-        } end)
-        * pipe.flatten()
-        +
-        (
-        entry * pipe.map(pipe.map(pipe.select("equal")))
-        + entry * pipe.map(pipe.map(pipe.select("slot")))
-        )
-        * pipe.flatten()
-        * pipe.filter(pipe.noop())
-        * pipe.flatten()
-        * pipe.map(function(f) return {
-            {face = f, modes = {{type = "FILL", key = "fill_yellow"}}},
-        } end)
-        * pipe.flatten()
+        groundFaces = groundFaces
     }
-    * tdpp.displace(config, trackCoords)
 end
 
 local retriveInfo = function(info)
@@ -212,7 +180,6 @@ local function solve(s, e, r)
     local vecES = posE - posS
     local x = lnS - lnE
     
-    
     if (x) then
         local vecXS = x - posS
         local vecXE = x - posE
@@ -234,7 +201,7 @@ local function solve(s, e, r)
             local a = posS - posE
             local b = vecOS - vecOE
             local ab = a:dot(b)
-            local radius = (ab + sqrt(ab * ab + 4 * a:dot(a)  - a:length2() * b:length2())) / (4 - b:length2())
+            local radius = (ab + sqrt(ab * ab + 4 * a:dot(a) - a:length2() * b:length2())) / (4 - b:length2())
             local oS = posS + vecOS * radius
             local oE = posE + vecOE * radius
             local m = (oS + oE) * 0.5
@@ -248,7 +215,7 @@ local function solve(s, e, r)
                 / straightResult(posCE1, posCS2)
                 / ret2
                 / straightResult(posCE2, posE)
-        elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then 
+        elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then
             return solve(e, s, r)
         end
     else
