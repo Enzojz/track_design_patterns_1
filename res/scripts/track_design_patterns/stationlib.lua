@@ -473,4 +473,28 @@ stationlib.mergeResults = function(...)
     return merge(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ...)
 end
 
+stationlib.joinArcs = function(arc)
+    local function average(op1, op2) return (op1 + op2) * 0.5, (op1 + op2) * 0.5 end
+    local joinEdge = function(l, r)
+        local newL = l
+        local newR = r
+        newL[2], newR[1] = average(newL[2], newR[1])
+        newL[4], newR[3] = average(newL[4], newR[3])
+        return newL, newR
+    end
+    
+    local function join(result, fst, snd, ...)
+        local function fn(...)
+            local newL, newR = joinEdge(fst, snd)
+            return join(result / newL, newR, ...)
+        end
+        return snd and fn(...) or result / fst
+    end
+    return {
+        edge = join(pipe.new, unpack(arc.edge)),
+        snap = arc.snap,
+        freeNodes = arc.freeNodes
+    }
+end
+
 return stationlib

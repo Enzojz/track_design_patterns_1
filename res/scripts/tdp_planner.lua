@@ -300,8 +300,7 @@ tdpp.updatePlanner = function(params, markers, con)
         local transf = quat.byVec(coor.xyz(0, 1, 0), (results[1].vec):withZ(0)):mRot() * coor.trans(results[1].pos)
         local vecRef, rotRef, _ = coor.decomposite(transf)
         local iRot = coor.inv(cov(rotRef))
-
-
+        
         local previewParams = func.with(station.pureParams(params),
         {
             showPreview = true,
