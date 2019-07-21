@@ -480,6 +480,7 @@ local updateFunction = function(params)
     return
         pipe.new
         * {
+            arcs = arcs,
             edgeLists = {pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.nonAligned()},
             edgeObjects = length <= signalSpacing and {} or pipe.new
             * func.seqMap({0, nbTracks - 1}, function(n) return
@@ -498,7 +499,7 @@ local updateFunction = function(params)
             * pipe.flatten()
             * pipe.flatten(),
             models = walls * pipe.flatten(),
-            terrainAlignmentLists = station.mergePoly(
+            terrainAlignmentLists = pipe.new * station.mergePoly(
                 polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
                 polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
             )({less = 1.5}),
@@ -514,8 +515,62 @@ local updateFunction = function(params)
 end
 
 local unpackMeta = function(params)
-    local results = func.map(params.overrideMeta, function(o) return updateFunction(func.with(params, {overrideParams = o, overrideMeta = nil})) * station.setTransform(o.m) end)
-    local result = station.mergeResults(unpack(results))
+    local trackType = tdp.trackList[params.trackType + 1]
+    local catenary = params.catenary == 1
+    local trackBuilder = trackEdge.builder(catenary, trackType)
+    
+    local results =
+        pipe.new * params.overrideMeta
+        * pipe.fold(false, function(r, o)
+            local result = updateFunction(func.with(params, {overrideParams = o, overrideMeta = nil})) * station.setTransform(o.m)
+            local _, mvec, _ = coor.decomposite(o.m)
+            local arcsT = result.arcs and result.arcs
+                * pipe.map(function(e) return func.with(e, {edge = e.edge * pipe.map(pipe.map2({o.m, o.m, mvec, mvec}, coor.apply))}) end)
+            return r and
+                {
+                    arcs = r.arcs and arcsT and func.map2(r.arcs, arcsT,
+                        function(r, arcs)
+                            return {
+                                edge = r.edge + arcs.edge,
+                                freeNodes = false,
+                                snap = r.snap + arcs.snap
+                            }
+                        end) or r.arcs,
+                    terrainAlignmentLists = pipe.new * r.terrainAlignmentLists + result.terrainAlignmentLists,
+                    groundFaces = pipe.new * r.groundFaces + result.groundFaces,
+                    models = pipe.new * r.models + result.models
+                } or result
+        end)
+    
+    local joinArcs = function(arc)
+        local function average(op1, op2) return (op1 + op2) * 0.5, (op1 + op2) * 0.5 end
+        local joinEdge = function(l, r)
+            local newL = l
+            local newR = r
+            newL[2], newR[1] = average(newL[2], newR[1])
+            newL[4], newR[3] = average(newL[4], newR[3])
+            return newL, newR
+        end
+        
+        local function join(result, fst, snd, ...)
+            local function fn(...)
+                local newL, newR = joinEdge(fst, snd)
+                return join(result / newL, newR, ...)
+            end
+            return snd and fn(...) or result / fst
+        end
+        return {
+            edge = join(pipe.new, unpack(arc.edge)),
+            snap = arc.snap,
+            freeNodes = arc.freeNodes
+        }
+    end
+    
+    local result = results.arcs and func.with(results,
+        {
+            edgeLists = {pipe.new * results.arcs * pipe.map(joinArcs) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.nonAligned()}
+        }) or results
+    
     if (#result.models == 0) then
         result.models = {
             {

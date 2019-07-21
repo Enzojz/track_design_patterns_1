@@ -239,7 +239,7 @@ stationlib.joinEdges = function(edges)
         return pipe.new
             * func.map(pattern, function(fns)
                 local pl, pr, fadj = unpack(fns)
-                return (pl(l) - pr(r)):length2() < 0.01
+                return (pl(l) - pr(r)):length2() < 0.1
                     and joinEdge(fadj())
                     or nil
             end)
@@ -264,8 +264,8 @@ end
 
 stationlib.mergeEdges = function(edges)
     return {
-        edge = func.mapFlatten(edges, pipe.select("edge")),
-        snap = func.mapFlatten(edges, pipe.select("snap")),
+        edge = edges * pipe.map(pipe.select("edge")) * pipe.flatten(),
+        snap = edges * pipe.map(pipe.select("snap")) * pipe.flatten(),
         freezenNodes = func.fold(edges, false, function(f, e) return e.freezenNodes or f end)
     }
 end
@@ -446,7 +446,7 @@ stationlib.pureParams = function(pa)
 end
 
 stationlib.mergeResults = function(...)
-    local function merge(edgeLists, models, terminalGroups, terrainAlignmentLists, groundFaces, r, ...)
+    local function merge(edgeLists, edgeObjects, models, terrainAlignmentLists, groundFaces, r, ...)
         if (r) then
             local count = {
                 terminal = #models,
@@ -454,17 +454,8 @@ stationlib.mergeResults = function(...)
             }
             return merge(
                 edgeLists + r.edgeLists,
+                r.edgeObjects and (edgeObjects + r.edgeObjects) or edgeObjects,
                 models + r.models,
-                r.terminalGroups and terminalGroups + 
-                    func.map(
-                        r.terminalGroups,
-                        function(t)
-                            return { 
-                                terminals = func.map(t.terminals, function(t) return {t[1] + count.terminal, t[2]} end),
-                                vehicleNodeOverride = t.vehicleNodeOverride + count.edges
-                            }
-                        end
-                    ) or terminalGroups,
                 terrainAlignmentLists + r.terrainAlignmentLists,
                 r.groundFaces and groundFaces + r.groundFaces or groundFaces,
                 ...
@@ -472,8 +463,8 @@ stationlib.mergeResults = function(...)
         else
             return {
                 edgeLists = edgeLists,
+                edgeObjects = edgeObjects,
                 models = models,
-                terminalGroups = terminalGroups,
                 terrainAlignmentLists = terrainAlignmentLists,
                 groundFaces = groundFaces
             }
