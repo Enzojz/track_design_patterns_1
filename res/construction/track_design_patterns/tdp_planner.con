@@ -41,6 +41,7 @@ function data()
                     return
                         {
                             type = "TRACK",
+                            alignTerrain = false,
                             params = {
                                 type = "standard.lua",
                                 catenary = false
