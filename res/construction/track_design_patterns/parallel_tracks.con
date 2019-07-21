@@ -10,6 +10,9 @@ local tdp = require "track_design_patterns"
 local tdpp = require "tdp_planner"
 local dump = require "luadump"
 local math = math
+
+local ceil = math.ceil
+local floor = math.floor
 local abs = math.abs
 local pi = math.pi
 local atan = math.atan
@@ -220,6 +223,7 @@ local updateFunction = function(params)
     
     length = length > 0 and length or 1
     local signalSpacing = ({length, 20, 100, 200, 400, 600, 800, 1000, 1500})[params.signalSpacing + 1]
+    signalSpacing = (signalSpacing < length) and (length / floor(length / signalSpacing)) or signalSpacing
     
     local offsets = tdp.buildCoors(nbTracks, nbTracks)
     local initRad = radius > 0 and pi or 0
@@ -230,6 +234,34 @@ local updateFunction = function(params)
     local function signalGrouping(result, leftLength)
         return leftLength <= 0 and result / 1 or signalGrouping(result / ((length - leftLength) / length), leftLength - signalSpacing)
     end
+    
+    local limits = signalGrouping(pipe.new, length)
+        * function(r) return func.map2(
+            func.range(r, 1, #r - 1),
+            func.range(r, 2, #r),
+            function(f, t) return
+                {
+                    inf = initRad + f * dRad,
+                    mid = initRad + (f + t) * 0.5 * dRad,
+                    sup = initRad + t * dRad
+                }
+            end)
+        end
+    
+    local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
+    
+    local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
+    local rightSignal = function(i) return i % 2 == 1 and {{false, 1 - signalOffset}} or {} end
+    
+    local signalPattern = ({
+        function(n, i) return n % 2 == 1 and leftSignal(i) or rightSignal(i) end,
+        function(n, i) return n % 2 ~= 1 and leftSignal(i) or rightSignal(i) end,
+        function(n, i) return n <= nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
+        function(n, i) return n > nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
+        function(_, i) return leftSignal(i) end,
+        function(_, i) return rightSignal(i) end,
+        function(_, i) return i == 1 and {{true, signalOffset}} or (i == #limits * 2 and {{false, 1 - signalOffset}} or {}) end
+    })[params.signalPattern + 1];
     
     local fz =
     (slopeA == slopeB) and
@@ -252,18 +284,6 @@ local updateFunction = function(params)
             end
         end
     
-    local limits = signalGrouping(pipe.new, length)
-        * function(r) return func.map2(
-            func.range(r, 1, #r - 1),
-            func.range(r, 2, #r),
-            function(f, t) return
-                {
-                    inf = initRad + f * dRad,
-                    mid = initRad + (f + t) * 0.5 * dRad,
-                    sup = initRad + t * dRad
-                }
-            end)
-        end
     
     local guideline = arc.byOR(coor.xyz(radius, 0, 0), abs(radius)):withLimits({
         inf = initRad,
@@ -304,20 +324,6 @@ local updateFunction = function(params)
         * pipe.map(station.mergeEdges)
     
     
-    local signalOffset = 5 / (signalSpacing < 20 and 20 or signalSpacing)
-    
-    local leftSignal = function(i) return i % 2 == 0 and {{true, signalOffset}} or {} end
-    local rightSignal = function(i) return i % 2 == 1 and {{false, 1 - signalOffset}} or {} end
-    
-    local signalPattern = ({
-        function(n, i) return n % 2 == 1 and leftSignal(i) or rightSignal(i) end,
-        function(n, i) return n % 2 ~= 1 and leftSignal(i) or rightSignal(i) end,
-        function(n, i) return n <= nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
-        function(n, i) return n > nbTracks * 0.5 and leftSignal(i) or rightSignal(i) end,
-        function(_, i) return leftSignal(i) end,
-        function(_, i) return rightSignal(i) end,
-        function(_, i) return i == 1 and {{true, signalOffset}} or (i == #limits * 2 and {{false, 1 - signalOffset}} or {}) end
-    })[params.signalPattern + 1];
     
     local wallHeight = {
         A = func.seq(-1, 15)[params.wallAHeight + 1],
@@ -481,6 +487,7 @@ local updateFunction = function(params)
         pipe.new
         * {
             arcs = arcs,
+            nbSegs = 2 * #limits,
             edgeLists = {pipe.new * {arcs} * station.fusionEdges * pipe.map(station.mergeEdges) * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.nonAligned()},
             edgeObjects = length <= signalSpacing and {} or pipe.new
             * func.seqMap({0, nbTracks - 1}, function(n) return
@@ -488,6 +495,8 @@ local updateFunction = function(params)
                     func.map(signalPattern(n + 1, i + 1), function(p)
                         local isLeft, pos = unpack(p)
                         return {
+                            n = n,
+                            i = i,
                             edge = n * #limits * 2 + i,
                             param = pos,
                             left = isLeft,
@@ -518,17 +527,27 @@ local unpackMeta = function(params)
     local trackType = tdp.trackList[params.trackType + 1]
     local catenary = params.catenary == 1
     local trackBuilder = trackEdge.builder(catenary, trackType)
-    
+    local nbSegs = 0
     local results =
         pipe.new * params.overrideMeta
-        * pipe.fold(false, function(r, o)
+        * pipe.map(function(o)
             local result = updateFunction(func.with(params, {overrideParams = o, overrideMeta = nil})) * station.setTransform(o.m)
             local _, mvec, _ = coor.decomposite(o.m)
-            local arcsT = result.arcs and result.arcs
-                * pipe.map(function(e) return func.with(e, {edge = e.edge * pipe.map(pipe.map2({o.m, o.m, mvec, mvec}, coor.apply))}) end)
+            nbSegs = result.nbSegs and (result.nbSegs + nbSegs) or nbSegs
+            return result * pipe.with({
+                prevSegs = result.nbSegs and (nbSegs - result.nbSegs) or 0,
+                arcs = result.arcs and result.arcs * pipe.map(function(e) return func.with(e, {edge = e.edge * pipe.map(pipe.map2({o.m, o.m, mvec, mvec}, coor.apply))}) end)
+            })
+        end)
+        * pipe.map(function(result)
+            return result.edgeObjects and
+                func.with(result, {edgeObjects = result.edgeObjects * pipe.map(function(o) return func.with(o, {edge = o.n * nbSegs + result.prevSegs + o.i}) end)}) or
+                result
+        end)
+        * pipe.fold(false, function(r, result)
             return r and
                 {
-                    arcs = r.arcs and arcsT and func.map2(r.arcs, arcsT,
+                    arcs = r.arcs and result.arcs and func.map2(r.arcs, result.arcs,
                         function(r, arcs)
                             return {
                                 edge = r.edge + arcs.edge,
@@ -536,6 +555,7 @@ local unpackMeta = function(params)
                                 snap = r.snap + arcs.snap
                             }
                         end) or r.arcs,
+                    edgeObjects = r.edgeObjects and (pipe.new * r.edgeObjects + result.edgeObjects),
                     terrainAlignmentLists = pipe.new * r.terrainAlignmentLists + result.terrainAlignmentLists,
                     groundFaces = pipe.new * r.groundFaces + result.groundFaces,
                     models = pipe.new * r.models + result.models
