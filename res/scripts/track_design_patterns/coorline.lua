@@ -1,7 +1,6 @@
 local coor = require "track_design_patterns/coor"
 
 local line = {}
-dump = require "luadump"
 
 local math = math
 local sin = math.sin

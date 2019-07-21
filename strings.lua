@@ -76,6 +76,8 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.8
+    - Added planner support, see Track Designer Patterns Planner mod.
     1.7
     * Added switch to toggle off/on free tracks
     1.6
@@ -177,6 +179,8 @@ local descZH = [[
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.8
+    - 增加了规划工具支持
     1.7
     * 增加了可修改轨道的选项
     1.6
@@ -377,7 +381,12 @@ function data()
             ["Free tracks"] = "可以修改的轨道",
             ["Road stacking over tracks"] = "悬于轨道之上的马路",
             ["Not build"] = "不建造",
-            ["One road stacking over one or many tracks with fix radious and signaling spacing."] = "一组或一条带有固定半径和信号机间距的轨道结构，结构上层是马路"
+            ["One road stacking over one or many tracks with fix radious and signaling spacing."] = "一组或一条带有固定半径和信号机间距的轨道结构，结构上层是马路",
+            ["Use Planner"] = "规划工具",
+            ["Preview/Refresh"] = "预览/刷新",
+            ["Build"] = "建造",
+            ["Clear"] = "清除",
+            ["Planner Group"] = "规划分组"
         },
         de = {
             ["name"] = "Track Design Patterns",

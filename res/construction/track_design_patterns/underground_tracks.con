@@ -7,8 +7,14 @@ local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
-local tdpp = require "tdp_planner"
 
+local hasTdpp, tdpp = xpcall(
+    require,
+    function(e)
+        print "Track design patterns planner not found."
+    end,
+    "tdp_planner"
+)
 local math = math
 local ceil = math.ceil
 local floor = math.floor
@@ -26,7 +32,7 @@ local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
     return
         pipe.new +
-        {
+        (hasTdpp and {
             {
                 key = "override",
                 name = _("Use Planner"),
@@ -40,18 +46,12 @@ local function params()
                 defaultIndex = 0
             },
             {
-                key = "radiusOverride",
-                name = _("Radius Source"),
-                values = {_("Max"), _("Menu")},
-                defaultIndex = 0
-            },
-            {
                 key = "overrideGr",
                 name = _("Planner Group"),
                 values = func.seqMap({1, 5}, tostring),
                 defaultIndex = 0
             }
-        }
+        } or {})
         + tdp.trackType
         + {
             {
@@ -256,7 +256,7 @@ local updateFunction = function(params)
     
     
     
-    if (params.showPreview) then
+    if (hasTdpp and params.showPreview) then
         return tdpp.updatePreview(
             pipe.new * {},
             guidelines
@@ -359,26 +359,30 @@ local function updateFn()
     return function(params)
         defaultParams(params)
         
-        if ((params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) and not params.showPreview) then
-            local markers = tdpp.findMarkers(params.overrideGr)
-            if (#markers == 2 or params.override > 1) then
-                tdpp.updatePlanner(params, markers, "underground_tracks.con")
+        if (hasTdpp) then
+            if ((params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) and not params.showPreview) then
+                local markers = tdpp.findMarkers(params.overrideGr)
+                if (#markers == 2 or params.override > 1) then
+                    tdpp.updatePlanner(params, markers, "underground_tracks.con")
+                end
             end
-        end
-        
-        if (params.override == 2 and not params.isBuild) then
-            local instance = pipe.new
-                * game.interface.getEntities({pos = {0, 0}, radius = 900000})
-                * pipe.map(game.interface.getEntity)
-                * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
             
-            if (#instance == 1) then
-                params.overrideMeta = instance[1].params.overrideMeta
-                params.isBuild = true
+            if (params.override == 2 and not params.isBuild) then
+                local instance = pipe.new
+                    * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+                    * pipe.map(game.interface.getEntity)
+                    * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
+                
+                if (#instance == 1) then
+                    params.overrideMeta = instance[1].params.overrideMeta
+                    params.isBuild = true
+                end
             end
+            
+            return params.overrideMeta and unpackMeta(params) or updateFunction(params)
+        else
+            return updateFunction(params)
         end
-        
-        return params.overrideMeta and unpackMeta(params) or updateFunction(params)
     end
 end
 
