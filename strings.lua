@@ -76,6 +76,8 @@ local descEN = [[
     German: RPGFabi
 
     === Changelog ===
+    1.9
+    - Added option to align terrain to the top of the wall
     1.8
     - Added planner support, see Track Designer Patterns Planner mod.
     1.7
@@ -179,6 +181,8 @@ local descZH = [[
     一些地形在连接两段轨道后会被错误地重新计算，这是由于游戏内部机制引起的错误，我没有认为办法去修复。
     
     === Changelog ===
+    1.9
+    - 增加了让地形对齐到墙顶的选项
     1.8
     - 增加了规划工具支持
     1.7
@@ -386,7 +390,8 @@ function data()
             ["Preview/Refresh"] = "预览/刷新",
             ["Build"] = "建造",
             ["Clear"] = "清除",
-            ["Planner Group"] = "规划分组"
+            ["Planner Group"] = "规划分组",
+            ["Terrain aligned to the walltop"] = "对齐地形到墙顶"
         },
         de = {
             ["name"] = "Track Design Patterns",
