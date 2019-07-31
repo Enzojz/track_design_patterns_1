@@ -264,8 +264,8 @@ end
 
 stationlib.mergeEdges = function(edges)
     return {
-        edge = edges * pipe.map(pipe.select("edge")) * pipe.flatten(),
-        snap = edges * pipe.map(pipe.select("snap")) * pipe.flatten(),
+        edge = pipe.new * func.map(edges, pipe.select("edge")) * pipe.flatten(),
+        snap = pipe.new * func.map(edges, pipe.select("snap")) * pipe.flatten(),
         freezenNodes = func.fold(edges, false, function(f, e) return e.freezenNodes or f end)
     }
 end
@@ -443,34 +443,6 @@ stationlib.pureParams = function(pa)
         end
     end
     return params
-end
-
-stationlib.mergeResults = function(...)
-    local function merge(edgeLists, edgeObjects, models, terrainAlignmentLists, groundFaces, r, ...)
-        if (r) then
-            local count = {
-                terminal = #models,
-                edges = func.fold(edgeLists, 0, function(c, e) return c + #e.edges end)
-            }
-            return merge(
-                edgeLists + r.edgeLists,
-                r.edgeObjects and (edgeObjects + r.edgeObjects) or edgeObjects,
-                models + r.models,
-                terrainAlignmentLists + r.terrainAlignmentLists,
-                r.groundFaces and groundFaces + r.groundFaces or groundFaces,
-                ...
-            )
-        else
-            return {
-                edgeLists = edgeLists,
-                edgeObjects = edgeObjects,
-                models = models,
-                terrainAlignmentLists = terrainAlignmentLists,
-                groundFaces = groundFaces
-            }
-        end
-    end
-    return merge(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ...)
 end
 
 stationlib.joinArcs = function(arc)

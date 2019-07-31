@@ -73,7 +73,7 @@ function line.intersection(l1, l2)
 
     local iidet = (a11 * a22 - a21 * a12)
     
-    if (abs(iidet) < 1e-8) then
+    if (iidet == 0) then
         return nil
     else
         local idet = 1 / iidet

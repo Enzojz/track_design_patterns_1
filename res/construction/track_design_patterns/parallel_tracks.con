@@ -15,7 +15,6 @@ local hasTdpp, tdpp = xpcall(
     end,
     "tdp_planner"
 )
-
 local math = math
 local ceil = math.ceil
 local floor = math.floor
@@ -53,12 +52,6 @@ local function params()
                 key = "override",
                 name = _("Use Planner"),
                 values = {_("No"), _("Preview/Refresh"), _("Build"), _("Clear")},
-                defaultIndex = 0
-            },
-            {
-                key = "overrideGr",
-                name = _("Planner Group"),
-                values = func.seqMap({1, 5}, tostring),
                 defaultIndex = 0
             },
             {
@@ -196,6 +189,12 @@ local function params()
                 name = _("Free tracks"),
                 values = {_("No"), _("Yes"), _("Not build")},
                 defaultIndex = 0
+            },
+            {
+                key = "terrainToWalltop",
+                name = _("Terrain aligned to the walltop"),
+                values = {_("No"), _("Yes")},
+                defaultIndex = 0
             }
         }
 end
@@ -206,8 +205,6 @@ local function defaultParams(param)
     end
     func.forEach(params(), function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
 end
-
-
 
 local updateFunction = function(params)
     local trackType = tdp.trackList[params.trackType + 1]
@@ -330,6 +327,23 @@ local updateFunction = function(params)
         B = params.wallBHeight == 0 and func.seq(-1, 15)[params.wallAHeight + 1] or func.seq(-1, 15)[params.wallBHeight]
     }
     
+    local wallVar = {
+        A = func.seq(-12, 12)[params.wallAVar + 1],
+        B = params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar]
+    }
+    
+    if (params.overrideParams) then
+        wallHeight = {
+            A = wallHeight.A + wallVar.A * params.overrideParams.percentA,
+            B = wallHeight.B + wallVar.B * params.overrideParams.percentA
+        }
+        
+        wallVar = {
+            A = wallVar.A * (params.overrideParams.percentB - params.overrideParams.percentA),
+            B = wallVar.B * (params.overrideParams.percentB - params.overrideParams.percentA)
+        }
+    end
+    
     local vfz = function(h, va)
         local var = h < 0 and 0 or
             va + h > 15 and 15 - h or
@@ -374,7 +388,7 @@ local updateFunction = function(params)
         retriveWall.A(wallList),
         tdp.fitModel,
         mPlace(
-            vfz(wallHeight.A, func.seq(-12, 12)[params.wallAVar + 1]),
+            vfz(wallHeight.A, wallVar.A),
             retriveWall.A(wallTransList)(wallHeight.A)
         ),
         retriveWall.A(wallWidthList),
@@ -384,7 +398,7 @@ local updateFunction = function(params)
         retriveWall.B(wallList),
         tdp.fitModel,
         mPlace(
-            vfz(wallHeight.B, params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar]),
+            vfz(wallHeight.B, wallVar.B),
             retriveWall.B(wallTransList)(wallHeight.B)
         ),
         retriveWall.B(wallWidthList),
@@ -421,7 +435,8 @@ local updateFunction = function(params)
                     }
             end)
     
-    local polyGen = function(wallHeight, refHeight, guidelines, wHeight)
+    local polyGen = function(wallHeight, wallVar, refHeight, guidelines, wHeight)
+        local vfz = vfz(wallHeight, wallVar)
         local f = function(s) return s.g and
             tdp.generatePolyArc({s.g, guideline}, "inf", "sup")(0, 0)
             * pipe.map(pipe.map(s.fz))
@@ -441,13 +456,16 @@ local updateFunction = function(params)
             less = polyGen(
                 {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end},
                 refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + wallHeight - 0.25)(p) end}
+                {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + vfz(p.rad).z + wallHeight - 0.25)(p) end}
             ),
             greater = polyGen(
                 {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight)(p) end},
                 refHeight > 0 and {g = guidelines.ref, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or {},
-                refHeight >= 0 and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end} or
-                {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight + wallHeight)(p) end}
+                params.terrainToWalltop == 1
+                and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z + vfz(p.rad).z + wallHeight - 0.25)(p) end} or
+                refHeight >= 0
+                and {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z)(p) end}
+                or {g = guidelines.outer, fz = function(p) return coor.transZ(fz(p.rad).z - wHeight + wallHeight)(p) end}
         )
         }
     end
@@ -480,7 +498,7 @@ local updateFunction = function(params)
             * pipe.flatten()
             * pipe.flatten()
             * pipe.map(function(poly) return {face = poly, modes = {{type = "FILL", key = "fill_red"}}} end),
-            radius, length, slopeA, slopeB, guideline)
+            radius, length, slopeA, slopeB, guideline, params.overrideParams.order)
     end
     
     return
@@ -509,8 +527,8 @@ local updateFunction = function(params)
             * pipe.flatten(),
             models = walls * pipe.flatten(),
             terrainAlignmentLists = pipe.new * station.mergePoly(
-                polyGen(wallHeight.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
-                polyGen(wallHeight.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
+                polyGen(wallHeight.A, wallVar.A, wallHeight.B, terrainGuidelines[1], retriveWall.A(wallHeightList)),
+                polyGen(wallHeight.B, wallVar.B, wallHeight.A, terrainGuidelines[2], retriveWall.B(wallHeightList))
             )({less = 1.5}),
             groundFaces =
             pipe.new
