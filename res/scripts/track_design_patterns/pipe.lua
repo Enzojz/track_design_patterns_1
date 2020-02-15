@@ -26,7 +26,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --]]
 local pipe = {}
-local table = table
+local unpack = table.unpack
 
 function pipe.fold(init, fun)
     return function(ls)
@@ -58,6 +58,22 @@ function pipe.mapi(fun)
     end
 end
 
+function pipe.keys()
+    return function(ls)
+        local result = {}
+        for k, _ in pairs(ls) do result[#result + 1] = k end
+        return result
+    end
+end
+
+
+function pipe.values()
+    return function(ls)
+        local result = {}
+        for i, e in pairs(ls) do result[#result + 1] = e end
+        return result
+    end
+end
 
 function pipe.mapValues(fun)
     return function(ls)
@@ -126,8 +142,8 @@ function pipe.mapn(...)
     return function(fun)
         local result = {}
         for i = 1, #ls[1] do
-            params = ls * pipe.map(pipe.select(i)) 
-            result[i] = fun(table.unpack(params))
+            local params = ls * pipe.map(pipe.select(i)) 
+            result[i] = fun(unpack(params))
         end
         return result
     end
@@ -139,8 +155,8 @@ function pipe.mapx(...)
         return function(l)
             local result = {}
             for i = 1, #l do
-                params = ls * pipe.map(pipe.select(i)) 
-                result[i] = fun(l[i], table.unpack(params))
+                local params = ls * pipe.map(pipe.select(i)) 
+                result[i] = fun(l[i], unpack(params))
             end
             return result
         end
@@ -263,7 +279,7 @@ end
 local pipeMeta = {
     __mul = function(lhs, rhs)
         local result = rhs(lhs)
-        if (type(result) == "table") then setmetatable(result, getmetatable(lhs)) end
+        if (type(result) == "table" and not getmetatable(result)) then setmetatable(result, getmetatable(lhs)) end
         return result
     end
     ,
@@ -306,7 +322,7 @@ pipe.from = function(...)
     setmetatable(retVal,
         {
             __mul = function(lhs, rhs)
-                local result = rhs(table.unpack(lhs))
+                local result = rhs(unpack(lhs))
                 setmetatable(result, pipeMeta)
                 return result
             end,

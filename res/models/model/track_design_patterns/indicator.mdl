@@ -1,46 +1,32 @@
 function data()
     return {
         collider = {
-            params = {
-            
-            },
-            type = "MESH",
+            params = {  },
+            type = "MESH"
         },
         lods = {
             {
-                animations = {
-                
-                },
-                children = {
-                    {
-                        id = "track_design_patterns/indicator.msh",
-                        transf = {
-                            1, 0, 0, 0, 
-                            0, 1, 0, 0, 
-                            0, 0, 1, 0, 
-                            0, 0, 0, 1,
-                        },
-                        type = "MESH",
+                animations = {  },
+                events = {  },
+                node = {
+                    children = {
+                        {
+                            materials = {
+                                "track_design_patterns/indicator.mtl"
+                            },
+                            mesh = "track_design_patterns/indicator.msh",
+                            transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
+                        }
                     },
-                
-                },
-                events = {
-                
-                },
-                matConfigs = {
-                    {
-                        0, 0, 0,
-                    },
+                    name = "RootNode",
+                    transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
                 },
                 static = true,
                 visibleFrom = 0,
-                visibleTo = 2000,
-            
-            },
+                visibleTo = 2000
+            }
         },
-        metadata = {
-        }
-    
-    
+        metadata = {  },
+        version = 1
     }
 end

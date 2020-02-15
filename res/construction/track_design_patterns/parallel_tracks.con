@@ -324,18 +324,19 @@ local updateFunction = function(params)
     
     local wallHeight = {
         A = func.seq(-1, 15)[params.wallAHeight + 1],
-        B = params.wallBHeight == 0 and func.seq(-1, 15)[params.wallAHeight + 1] or func.seq(-1, 15)[params.wallBHeight]
+        B = func.seq(-1, 15)[params.wallBHeight == 0 and (params.wallAHeight + 1) or params.wallBHeight]
     }
     
     local wallVar = {
         A = func.seq(-12, 12)[params.wallAVar + 1],
-        B = params.wallBVar == 0 and func.seq(-12, 12)[params.wallAVar + 1] or func.seq(-12, 12)[params.wallBVar]
+        B = func.seq(-12, 12)[params.wallBVar == 0 and (params.wallAVar + 1) or params.wallBVar]
     }
+
     
     if (params.overrideParams) then
         wallHeight = {
-            A = wallHeight.A + wallVar.A * params.overrideParams.percentA,
-            B = wallHeight.B + wallVar.B * params.overrideParams.percentA
+            A = wallHeight.A == 0 and 0 or wallHeight.A + wallVar.A * params.overrideParams.percentA,
+            B = wallHeight.B == 0 and 0 or wallHeight.B + wallVar.B * params.overrideParams.percentA
         }
         
         wallVar = {
@@ -394,6 +395,7 @@ local updateFunction = function(params)
         retriveWall.A(wallWidthList),
         retriveWall.A(wallLengthList)
     )
+
     local makeWallB = tdp.makeFn(wallHeight.B > 0)(
         retriveWall.B(wallList),
         tdp.fitModel,
@@ -404,6 +406,8 @@ local updateFunction = function(params)
         retriveWall.B(wallWidthList),
         retriveWall.B(wallLengthList)
     )
+
+    
     local makePaving = tdp.makeFn(false)(
         "track_design_patterns/paving_base",
         tdp.fitModel,
@@ -416,7 +420,7 @@ local updateFunction = function(params)
         + {wallHeight.B == 0 and {} or pipe.new * makeWallB(wallGuidelines[2]) * pipe.flatten()}
         + {wallHeight.A ~= 0 and pipe.new * trackPavingGuidelines[1] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
         + {wallHeight.B ~= 0 and pipe.new * trackPavingGuidelines[2] * pipe.map(makePaving) * pipe.flatten() * pipe.flatten() or {}}
-    
+
     local terrainGuidelines = offsets.walls
         * (radius < 0 and pipe.noop() or pipe.rev())
         * pipe.map2(
@@ -537,7 +541,7 @@ local updateFunction = function(params)
             * pipe.flatten()
             * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
         }
-        * station.setHeight(func.seq(-10, 15)[params.height + 1])
+        * station.setHeight(params.overrideParams and 0 or func.seq(-10, 15)[params.height + 1])
 
 end
 

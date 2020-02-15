@@ -1,43 +1,39 @@
 function data()
     return {
-        boundingInfo = {},
+        boundingInfo = {  },
         collider = {
-            type = "CYLINDER",
             params = {
+                center = { 0, 0, 2 },
                 direction = "Z",
-                center = { .0, .0, 2.0 },
-                halfExtents = { .5, .5, 2.0 }
-            }
+                halfExtents = { 0.5, 0.5, 2 }
+            },
+            type = "CYLINDER"
         },
         lods = {
             {
-                animations = {
-                    
-                },
-                children = {
-                },
-                events = {
-                },
-                matConfigs = {
+                animations = {  },
+                events = {  },
+                node = {
+                    children = {  },
+                    name = "RootNode",
+                    transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
                 },
                 static = false,
                 visibleFrom = 0,
-                visibleTo = 380,
-                
-            }, 
+                visibleTo = 380
+            }
         },
         metadata = {
-            description = {
-                name = _("Enumlated Moving Block"),
-                description = _("Used as an enmlated moving block.")
-            },
             availability = { yearFrom = 1840, yearTo = 1840 },
             cost = { price = 3000 },
+            description = {
+                description = "Used as an enmlated moving block.",
+                name = "Enumlated Moving Block"
+            },
             signal = {
                 type = "PATH_SIGNAL"
             }
         },
-        
+        version = 1
     }
-    end
-    
+end

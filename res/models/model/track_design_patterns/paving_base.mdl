@@ -1,36 +1,32 @@
 function data()
     return {
         collider = {
-            params = {},
+            params = {  },
             type = "MESH"
         },
         lods = {
             {
-                children = {
-                    {
-                        id = "track_design_patterns/paving_base.msh",
-                        transf = {
-                            1, 0, 0, 0,
-                            0, 1, 0, 0,
-                            0, 0, 1, 0,
-                            0, 0, 0, 1
-                        },
-                        type = "MESH",
+                node = {
+                    children = {
+                        {
+                            materials = {
+                                "track_design_patterns/paving.mtl"
+                            },
+                            mesh = "track_design_patterns/paving_base.msh",
+                            transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
+                        }
                     },
-                },
-                matConfigs = {
-                    {0, },
+                    name = "RootNode",
+                    transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
                 },
                 static = false,
                 visibleFrom = 0,
-                visibleTo = 5000,
-            },
+                visibleTo = 5000
+            }
         },
         metadata = {
-            cost = {
-                price = 0,
-            },
+            cost = { price = 0 }
         },
-    
+        version = 1
     }
 end

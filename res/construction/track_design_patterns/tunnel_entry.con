@@ -358,16 +358,16 @@ local updateFn = function()
                 )()
                 ,
                 groundFaces = (pipe.new
-                + polys * pipe.map(function(p) return {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast"}}} end)
+                + polys * pipe.map(function(p) return {face = func.map(p, coor.vec2Tuple), modes = {{type = "STROKE_OUTER", key = "ballast.lua"}}} end)
                 + slotPolys * pipe.map(function(p) return {face = func.map(p, coor.vec2Tuple), modes = {{type = "FILL", key = "hole"}}} end)
                 + {
+                    -- {
+                    --     face = station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0)),
+                    --     modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}
+                    -- },
                     {
                         face = station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0)),
-                        modes = {{type = "FILL", key = "track_design_patterns/paving_fill"}}
-                    },
-                    {
-                        face = station.surfaceOf(coor.xyz(nbTracks * 5 + 2.5, 5, 0), coor.xyz(0, 2, 0)),
-                        modes = {{type = "STROKE_OUTER", key = "ballast"}}
+                        modes = {{type = "STROKE_OUTER", key = "ballast.lua"}}
                     }
                 }
             )
