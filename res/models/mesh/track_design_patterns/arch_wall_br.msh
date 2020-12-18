@@ -14,7 +14,7 @@ function data() return
               uv0 = 
                 { count = 2208, offset = 26496 }, 
              }, 
-             materials = { "track_design_patterns/brick.mtl" }
+          materials = { "track_design_patterns/brick.mtl" }
          }
        }, 
     vertexAttr = 

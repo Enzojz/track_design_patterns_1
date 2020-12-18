@@ -10,7 +10,7 @@ function data() return
               tangent = { count = 636, offset = 7632 }, 
               uv0 = { count = 636, offset = 7632 }, 
              }, 
-             materials = { "track_design_patterns/brick.mtl" }
+          materials = { "track_design_patterns/brick.mtl" }
          }
        }, 
     vertexAttr = 

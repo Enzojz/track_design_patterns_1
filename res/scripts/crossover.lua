@@ -5,8 +5,6 @@ local trackEdge = require "track_design_patterns/trackedge"
 local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
-local dump = require "luadump"
-
 
 local math = math
 local abs = math.abs
@@ -22,10 +20,10 @@ local unpack = table.unpack
 local slopeList = pipe.new * {2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 slopeList = slopeList * pipe.map(pipe.neg()) + {0} + slopeList
 local wallList = {
-    "track_design_patterns/2/concrete_wall",
-    "track_design_patterns/2/brick_wall",
-    "track_design_patterns/2/arch_wall",
-    "track_design_patterns/2/track_multi_lod_0_sound_insulation_10m"
+    "track_design_patterns/concrete_wall",
+    "track_design_patterns/brick_wall",
+    "track_design_patterns/arch_wall",
+    "track_design_patterns/track_multi_lod_0_sound_insulation_10m"
 }
 local wallHeightList = {15, 15, 15, 8}
 local wallLengthList = {5, 5, 5, 10}
@@ -364,7 +362,7 @@ return {
         name = _("Crossover"),
         description = _("Crossover switch group.")
     },
-    categories = {"track_design_patterns"},
+    categories = {"track_construction"},
     availability = {
         yearFrom = 1850
     },

@@ -9,8 +9,8 @@ function data() return
               position = { count = 276, offset = 3312 }, 
               tangent = { count = 276, offset = 3312 }, 
               uv0 = { count = 276, offset = 3312 }, 
-            }, 
-            materials = { "track_design_patterns/concrete.mtl" }
+             }, 
+          materials = { "track_design_patterns/concrete.mtl" }
          }
        }, 
     vertexAttr = 
