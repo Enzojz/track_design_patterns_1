@@ -28,7 +28,7 @@
                 if trackName == "standard.lua" then 
                     pos = 1
                 elseif trackName == "high_speed.lua" then 
-                    pos = tracks[1] == "standard.lua" and 2 or 1
+                    pos = trackList[1] == "standard.lua" and 2 or 1
                 end
                 table.insert(trackList, pos, trackName)
                 table.insert(trackIconList, pos, track.icon)

@@ -401,7 +401,7 @@ local updateFn = function(params, closureParams)
             / (terrainGuidelines[3] * pipe.map(function(t) return tdp.slotGen(wallHeight.B, t, "inf", "mid") end))
             * pipe.flatten()
             * pipe.flatten()
-            * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
+            * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole.lua"}}} end)
         }
         * station.setMirror(params.orientation == 0)
 end

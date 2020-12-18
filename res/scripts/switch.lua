@@ -544,7 +544,7 @@ local updateFn = function(params, closureParams)
             / tdp.slotGen(wallHeight.A, terrainGuidelines[5], "inf", "mid")
             / tdp.slotGen(wallHeight.B, terrainGuidelines[6], "inf", "mid")
             * pipe.flatten()
-            * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole"}}} end)
+            * pipe.map(function(p) return {face = p, modes = {{type = "FILL", key = "hole.lua"}}} end)
         }
 end
 
