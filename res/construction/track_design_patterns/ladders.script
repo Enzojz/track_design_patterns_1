@@ -1,0 +1,7 @@
+local script = require "ladders"
+
+function data()
+    return {
+        updateFn = script.updateFn
+    }
+end

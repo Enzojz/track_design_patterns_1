@@ -22,8 +22,8 @@ tdp.trackType = pipe.exec * function()
         {
             key = "trackType",
             name = _("Track type"),
+            uiType = "COMBOBOX",
             values = {_("Standard"), _("High-speed")},
-            yearFrom = 1925,
             yearTo = 0
         },
         {
@@ -31,14 +31,10 @@ tdp.trackType = pipe.exec * function()
             name = _("Catenary"),
             values = {_("No"), _("Yes")},
             defaultIndex = 1,
-            yearFrom = 1910,
+            yearFrom = 1900,
             yearTo = 0
         }
     }
-    if (commonapi and commonapi.uiparameter) then
-        commonapi.uiparameter.modifyTrackCatenary(list, {selectionlist = tdp.trackList})
-        tdp.trackWidthList = func.map(tdp.trackList, function(e) return commonapi.repos.track.getByName(e).data.trackDistance end)
-    end
     
     return pipe.new * list
 end

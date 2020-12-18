@@ -1,0 +1,7 @@
+local script = require "crossover"
+
+function data()
+    return {
+        updateFn = script.updateFn
+    }
+end

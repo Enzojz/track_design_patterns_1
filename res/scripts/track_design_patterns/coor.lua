@@ -25,7 +25,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --]]
-local laneutil = require "laneutil"
+local laneutil = require "track_design_patterns/laneutil"
 local func = require "track_design_patterns/func"
 
 local coor = {}

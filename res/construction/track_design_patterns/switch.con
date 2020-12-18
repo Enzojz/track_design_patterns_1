@@ -1,0 +1,2 @@
+local script = require "switch"
+function data() return script end

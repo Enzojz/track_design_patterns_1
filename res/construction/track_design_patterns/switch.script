@@ -1,0 +1,7 @@
+local script = require "switch"
+
+function data()
+    return {
+        updateFn = script.updateFn
+    }
+end
