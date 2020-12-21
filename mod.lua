@@ -1,7 +1,7 @@
 ﻿function data()
     return {
         info = {
-            minorVersion = 0,
+            minorVersion = 1,
             severityAdd = "NONE",
             severityRemove = "CRITICAL",
             name = _("name"),
@@ -15,7 +15,7 @@
                     tfnetId = 27218,
                 }
             },
-            tags = {"Bridge", "Track", "Wall", "Track Assert", "Train Depot", "Train Station", "Tunnel"},
+            tags = {"Track", "Wall", "Track Assert", "Switch"},
         },
         postRunFn = function(settings, params)
             local tracks = api.res.trackTypeRep.getAll()

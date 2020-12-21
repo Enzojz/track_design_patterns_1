@@ -343,8 +343,8 @@ local updateFn = function(params, closureParams)
     return
         pipe.new
         * {
-            edgeLists = {pipe.new * {edge} * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * trackBuilder.nonAligned()},
-            terrainAlignmentLists = polys,
+            edgeLists = {pipe.new * {edge} * (station.prepareEdges(({false, true, nil})[params.freeNodes + 1])) * ((wallHeight.A == 0 and wallHeight.B == 0) and trackBuilder.normal() or trackBuilder.nonAligned())},
+            terrainAlignmentLists = ((wallHeight.A == 0 and wallHeight.B == 0) and {} or polys),
             models = walls * pipe.flatten(),
             groundFaces =
             pipe.new
