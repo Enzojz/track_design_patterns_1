@@ -408,7 +408,7 @@ end
 
 
 return {
-    type = "ASSET_DEFAULT",
+    type = "TRACK_CONSTRUCTION",
     description = {
         name = _("Track ladders"),
         description = _("Track ladders used to form a shunting yard or depot.")
@@ -423,5 +423,6 @@ return {
     skipCollision = true,
     autoRemovable = false,
     params = params(),
-    updateFn = updateFn
+    updateFn = function(params, closureParams) return updateFn(params, closureParams) end,
+    update = updateFn
 }

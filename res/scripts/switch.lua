@@ -550,7 +550,7 @@ end
 
 
 return {
-    type = "ASSET_DEFAULT",
+    type = "TRACK_CONSTRUCTION",
     description = {
         name = _("Switches"),
         description = _("Switch on one track or switch group on many tracks.")
@@ -565,5 +565,6 @@ return {
     skipCollision = true,
     autoRemovable = false,
     params = params(),
-    updateFn = updateFn
+    updateFn = function(params, closureParams) return updateFn(params, closureParams) end,
+    update = updateFn
 }

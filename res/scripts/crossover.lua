@@ -357,7 +357,7 @@ end
 
 
 return {
-    type = "ASSET_DEFAULT",
+    type = "TRACK_CONSTRUCTION",
     description = {
         name = _("Crossover"),
         description = _("Crossover switch group.")
@@ -372,5 +372,6 @@ return {
     skipCollision = true,
     autoRemovable = false,
     params = params(),
-    updateFn = updateFn
+    updateFn = function(params, closureParams) return updateFn(params, closureParams) end,
+    update = updateFn
 }
