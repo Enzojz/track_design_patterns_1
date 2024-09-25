@@ -8,8 +8,6 @@ local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
 
-local dump = require "luadump"
-
 local math = math
 local abs = math.abs
 local pi = math.pi
