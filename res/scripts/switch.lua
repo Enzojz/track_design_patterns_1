@@ -163,7 +163,7 @@ local updateFn = function(params, closureParams)
     
     local compactness = params.compa == 5 and nil or ({2, 1, 0, -1, -1.5})[params.compa + 1]
 
-    if nbTracks == 10 and params.type == 1 and compactness == -1.5 then
+    if nbTracks > 7 and params.type == 1 and compactness == -1.5 then
         compactness = -1.25
     end
 
