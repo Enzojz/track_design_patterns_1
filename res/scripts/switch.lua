@@ -8,6 +8,8 @@ local station = require "track_design_patterns/stationlib"
 local pipe = require "track_design_patterns/pipe"
 local tdp = require "track_design_patterns"
 
+local dump = require "luadump"
+
 local math = math
 local abs = math.abs
 local pi = math.pi
@@ -160,7 +162,11 @@ local updateFn = function(params, closureParams)
     }
     
     local compactness = params.compa == 5 and nil or ({2, 1, 0, -1, -1.5})[params.compa + 1]
-    
+
+    if nbTracks == 10 and params.type == 1 and compactness == -1.5 then
+        compactness = -1.25
+    end
+
     local guidelines = {
         l = arc.byOR(coor.xy(-radious.l, 0), radious.l),
         r = arc.byOR(coor.xy(radious.r, 0), radious.r),
